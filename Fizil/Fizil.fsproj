@@ -48,8 +48,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Log.fs" />
     <Compile Include="TestCase.fs" />
     <Compile Include="Options.fs" />
+    <Compile Include="ExecutionResult.fs" />
     <Compile Include="Execute.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />

@@ -1,6 +1,7 @@
 ﻿module Execute
 
 open System.Diagnostics
+open ExecutionResult
 open Options
 open TestCase
 
@@ -13,12 +14,16 @@ let executeApplication (start: Start) (testCase: TestCase) =
     proc.StartInfo.WorkingDirectory <- start.WorkingDirectory
     proc.StartInfo.UseShellExecute  <- false
     proc.StartInfo.RedirectStandardOutput <- true
+    proc.StartInfo.RedirectStandardError <- true
     proc.Start() |> ignore
 
     // Synchronously read the standard output of the spawned process. 
-    let reader = proc.StandardOutput
-    let output = reader.ReadToEnd()
+    let output = proc.StandardOutput.ReadToEnd()
+    let err    = proc.StandardError.ReadToEnd()
 
     proc.WaitForExit()
     proc.Close()
-    output
+    {
+        StdErr = err
+        StdOut = output
+    }

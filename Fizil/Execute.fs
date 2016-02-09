@@ -5,16 +5,16 @@ open ExecutionResult
 open Options
 open TestCase
 
-let executeApplication (start: Start) (testCase: TestCase) =
+let executeApplication (options: Options) (testCase: TestCase) =
     use proc = new Process()
-    proc.StartInfo.FileName         <- start.Executable
+    proc.StartInfo.FileName         <- options.Application.Executable
     match testCase.Arguments with
         | Some args -> proc.StartInfo.Arguments <- args
         | None      -> () 
-    proc.StartInfo.WorkingDirectory <- start.WorkingDirectory
-    proc.StartInfo.UseShellExecute  <- false
+    proc.StartInfo.WorkingDirectory       <- options.Directories.WorkingDirectory
+    proc.StartInfo.UseShellExecute        <- false
     proc.StartInfo.RedirectStandardOutput <- true
-    proc.StartInfo.RedirectStandardError <- true
+    proc.StartInfo.RedirectStandardError  <- true
     proc.Start() |> ignore
 
     // Synchronously read the standard output of the spawned process. 

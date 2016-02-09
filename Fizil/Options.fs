@@ -9,13 +9,13 @@ type Operation =
     | ShowHelp
 
 type Directories = {
-    SystemUnderTest: string
-    Examples: string
+    SystemUnderTest:  string
+    Examples:         string
+    WorkingDirectory: string
 }
 
 type Start = {
     Executable: string
-    WorkingDirectory: string
 }
 
 type Options = {
@@ -27,8 +27,9 @@ type Options = {
 
 let private defaultDirectories =
     {
-        SystemUnderTest = "system-under-test"
-        Examples        = "examples"
+        SystemUnderTest  = "system-under-test"
+        Examples         = "examples"
+        WorkingDirectory = System.Environment.CurrentDirectory
     }
 
 let defaultOptions = 
@@ -36,12 +37,24 @@ let defaultOptions =
         Application = 
             {
                 Executable       = "..\\..\\..\\TinyTest\\bin\\Debug\\TinyTest.exe"
-                WorkingDirectory = System.Environment.CurrentDirectory
             }
         Directories = defaultDirectories
         Operation   = ExecuteTests
         Verbosity   = Verbose
     }
 
+let rec private parseOption (accum: Options) (argv: string list) =
+    match argv with 
+    | [] 
+        -> accum 
+    | "--init" :: rest 
+        -> parseOption { accum with Operation = Initialize } rest
+    | "--version" :: rest 
+        -> parseOption { accum with Operation = ReportVersion } rest
+    | "--help" :: rest 
+    | _        :: rest
+        -> parseOption { accum with Operation = ShowHelp } rest
+
+
 let parse (argv: string[]) = 
-    defaultOptions
+    parseOption defaultOptions (List.ofArray argv)

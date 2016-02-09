@@ -215,3 +215,5 @@ pip-log.txt
 #Mr Developer
 .mr.developer.cfg
 .paket/paket.exe
+Demo/system-under-test/TinyTest.exe
+Demo/system-under-test/TinyTest.exe.config

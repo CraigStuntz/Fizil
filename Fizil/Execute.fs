@@ -6,12 +6,13 @@ open Options
 open TestCase
 
 let executeApplication (options: Options) (testCase: TestCase) =
+    let workingDirectory = System.IO.Path.Combine [| options.Directories.ProjectDirectory; options.Directories.SystemUnderTest |]
+    System.IO.Directory.SetCurrentDirectory(workingDirectory)
     use proc = new Process()
     proc.StartInfo.FileName         <- options.Application.Executable
     match testCase.Arguments with
         | Some args -> proc.StartInfo.Arguments <- args
         | None      -> () 
-    proc.StartInfo.WorkingDirectory       <- options.Directories.WorkingDirectory
     proc.StartInfo.UseShellExecute        <- false
     proc.StartInfo.RedirectStandardOutput <- true
     proc.StartInfo.RedirectStandardError  <- true

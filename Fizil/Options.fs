@@ -12,7 +12,7 @@ type Directories = {
     SystemUnderTest:  string
     Examples:         string
     Findings:         string
-    WorkingDirectory: string
+    ProjectDirectory: string
 }
 
 type Start = {
@@ -31,14 +31,14 @@ let private defaultDirectories =
         SystemUnderTest  = "system-under-test"
         Examples         = "examples"
         Findings         = "findings"
-        WorkingDirectory = System.Environment.CurrentDirectory
+        ProjectDirectory = "..\..\..\Demo" 
     }
 
 let defaultOptions = 
     {
         Application = 
             {
-                Executable       = "..\\..\\..\\TinyTest\\bin\\Debug\\TinyTest.exe"
+                Executable       = "TinyTest.exe"
             }
         Directories = defaultDirectories
         Operation   = ExecuteTests
@@ -56,12 +56,12 @@ let rec private parseOption (accum: Options) (argv: string list) =
     | [] 
         -> accum 
     | "--init" :: rest 
-        -> parseOption { accum with Operation = Initialize } rest
+        -> parseOption { accum with Operation = Initialize }    rest
     | "--version" :: rest 
         -> parseOption { accum with Operation = ReportVersion } rest
     | "--help" :: rest 
     | _        :: rest
-        -> parseOption { accum with Operation = ShowHelp } rest
+        -> parseOption { accum with Operation = ShowHelp }      rest
 
 
 let parse (argv: string[]) = 

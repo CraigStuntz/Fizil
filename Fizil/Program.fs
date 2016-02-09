@@ -15,22 +15,22 @@ let private forceDirectory (root: string) (directory: string) =
     System.IO.Directory.CreateDirectory(directory) |> ignore
 
 let printOptions (options: Options) =
-    log options.Verbosity Verbose (sprintf "Working directory is %s" options.Directories.WorkingDirectory)
-    let fullPath = System.IO.Path.Combine([|options.Directories.WorkingDirectory; options.Application.Executable |])
-    log options.Verbosity Verbose (sprintf "About to start %s" fullPath)
+    log options.Verbosity Verbose (sprintf "Current directory is %s" System.Environment.CurrentDirectory)
+    log options.Verbosity Verbose (sprintf "Project directory is %s" options.Directories.ProjectDirectory)
+    let fullPath = System.IO.Path.Combine([|options.Directories.ProjectDirectory; options.Directories.SystemUnderTest; options.Application.Executable |])
+    log options.Verbosity Verbose (sprintf "About to start %s" (System.IO.Path.GetFullPath fullPath))
     
 let private initialize (options: Options) =
-    forceDirectory options.Directories.WorkingDirectory options.Directories.SystemUnderTest
-    forceDirectory options.Directories.WorkingDirectory options.Directories.Examples
-    forceDirectory options.Directories.WorkingDirectory options.Directories.Findings
+    let force = forceDirectory options.Directories.ProjectDirectory
+    force options.Directories.SystemUnderTest
+    force options.Directories.Examples
+    force options.Directories.Findings
 
 let private executeTests (options: Options) =
     printOptions options
     let result = executeApplication options
     printfn "StdOut: %s" result.StdOut
     printfn "StdErr: %s" result.StdErr
-    if (System.Diagnostics.Debugger.IsAttached)
-    then System.Console.ReadLine() |> ignore
     0
 
 let private reportVersion() =
@@ -43,12 +43,18 @@ let private showHelp (options: Options) =
 let main argv = 
     try
         let options = Options.parse argv
-        match options.Operation with
-        | Initialize    -> initialize options; 0
-        | ExecuteTests  -> executeTests options
-        | ReportVersion -> reportVersion();    0
-        | ShowHelp      -> showHelp options;   0
+        let exitCode =
+            match options.Operation with
+            | Initialize    -> initialize options; 0
+            | ExecuteTests  -> executeTests options
+            | ReportVersion -> reportVersion();    0
+            | ShowHelp      -> showHelp options;   0
+        if (System.Diagnostics.Debugger.IsAttached)
+        then System.Console.ReadLine() |> ignore
+        exitCode
     with 
         |  ex ->
             eprintfn "Error: %s" ex.Message
+            if (System.Diagnostics.Debugger.IsAttached)
+            then System.Console.ReadLine() |> ignore
             1

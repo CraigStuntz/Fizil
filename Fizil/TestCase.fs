@@ -1,7 +1,8 @@
 ﻿module TestCase
 
 type TestCase = {
-    Arguments:   string option
-    StdIn:       string option
+    Arguments:     string option
+    InputFileName: string option
+    StdIn:         string option
 }
 

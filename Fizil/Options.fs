@@ -11,6 +11,7 @@ type Operation =
 type Directories = {
     SystemUnderTest:  string
     Examples:         string
+    Findings:         string
     WorkingDirectory: string
 }
 
@@ -29,6 +30,7 @@ let private defaultDirectories =
     {
         SystemUnderTest  = "system-under-test"
         Examples         = "examples"
+        Findings         = "findings"
         WorkingDirectory = System.Environment.CurrentDirectory
     }
 
@@ -42,6 +44,12 @@ let defaultOptions =
         Operation   = ExecuteTests
         Verbosity   = Verbose
     }
+
+let helpString (options: Options) = 
+    """Usage: Fizil [OPTION]... 
+  --help    Display this help message
+  --init    Create working directories
+  --version Report version"""
 
 let rec private parseOption (accum: Options) (argv: string list) =
     match argv with 
@@ -57,4 +65,4 @@ let rec private parseOption (accum: Options) (argv: string list) =
 
 
 let parse (argv: string[]) = 
-    parseOption defaultOptions (List.ofArray argv)
+    parseOption defaultOptions (argv |> List.ofArray)

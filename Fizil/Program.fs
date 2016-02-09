@@ -4,10 +4,15 @@ open TestCase
 
 let executeApplication(options: Options) =
     let testCase = {
-        Arguments = Some "abc"
-        StdIn = None
+        Arguments     = Some "abc"
+        InputFileName = None
+        StdIn         = None
     }
     Execute.executeApplication options testCase
+
+let private forceDirectory (root: string) (directory: string) =
+    let directory = System.IO.Path.Combine(root, directory)
+    System.IO.Directory.CreateDirectory(directory) |> ignore
 
 let printOptions (options: Options) =
     log options.Verbosity Verbose (sprintf "Working directory is %s" options.Directories.WorkingDirectory)
@@ -15,7 +20,9 @@ let printOptions (options: Options) =
     log options.Verbosity Verbose (sprintf "About to start %s" fullPath)
     
 let private initialize (options: Options) =
-    0
+    forceDirectory options.Directories.WorkingDirectory options.Directories.SystemUnderTest
+    forceDirectory options.Directories.WorkingDirectory options.Directories.Examples
+    forceDirectory options.Directories.WorkingDirectory options.Directories.Findings
 
 let private executeTests (options: Options) =
     printOptions options
@@ -26,22 +33,21 @@ let private executeTests (options: Options) =
     then System.Console.ReadLine() |> ignore
     0
 
-let private reportVersion =
+let private reportVersion() =
     printfn "%A" (System.Reflection.Assembly.GetExecutingAssembly().GetName().Version)
-    0
 
 let private showHelp (options: Options) =
-    0
+    printfn "%s" (Options.helpString options)
 
 [<EntryPoint>]
 let main argv = 
     try
         let options = Options.parse argv
         match options.Operation with
-        | Initialize    -> initialize options
+        | Initialize    -> initialize options; 0
         | ExecuteTests  -> executeTests options
-        | ReportVersion -> reportVersion
-        | ShowHelp      -> showHelp options
+        | ReportVersion -> reportVersion();    0
+        | ShowHelp      -> showHelp options;   0
     with 
         |  ex ->
             eprintfn "Error: %s" ex.Message

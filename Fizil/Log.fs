@@ -18,10 +18,14 @@ let private shouldLog (argumentsVerbosity: Verbosity) (messageVerbosity: Verbosi
 
 let private log (argumentsVerbosity: Verbosity) (messageVerbosity: Verbosity) (message: string) =
     match shouldLog argumentsVerbosity messageVerbosity with
-    | true  -> System.Console.WriteLine message
+    | true  -> printfn "%s" message
     | false -> ()
 
 
 let create (argumentsVerbosity: Verbosity) : Logger =
     log argumentsVerbosity
+
+
+let error (message: string) =
+    eprintfn "Error: %s" message
 

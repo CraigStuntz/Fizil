@@ -3,16 +3,17 @@
 open System.Diagnostics
 open ExecutionResult
 open Project
-open TestCase
 
-let executeApplication (project: Project) (testCase: TestCase) =
+
+let initialize (project: Project) =
     let workingDirectory = System.IO.Path.Combine [| project.Directories.ProjectDirectory; project.Directories.SystemUnderTest |]
     System.IO.Directory.SetCurrentDirectory(workingDirectory)
+
+
+let executeApplication (project: Project) (testCase: string) =
     use proc = new Process()
-    proc.StartInfo.FileName         <- project.Executable
-    match testCase.Arguments with
-        | Some args -> proc.StartInfo.Arguments <- args
-        | None      -> () 
+    proc.StartInfo.FileName               <- project.Executable
+    proc.StartInfo.Arguments              <- testCase
     proc.StartInfo.UseShellExecute        <- false
     proc.StartInfo.RedirectStandardOutput <- true
     proc.StartInfo.RedirectStandardError  <- true

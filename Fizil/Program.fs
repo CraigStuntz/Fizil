@@ -1,34 +1,35 @@
-﻿open Log
-open Options
+﻿open Arguments
+open Log
+open Project
 open TestCase
 
-let executeApplication(options: Options) =
+let executeApplication(project: Project) =
     let testCase = {
         Arguments     = Some "abc"
         InputFileName = None
         StdIn         = None
     }
-    Execute.executeApplication options testCase
+    Execute.executeApplication project testCase
 
 let private forceDirectory (root: string) (directory: string) =
     let directory = System.IO.Path.Combine(root, directory)
     System.IO.Directory.CreateDirectory(directory) |> ignore
 
-let printOptions (options: Options) =
-    log options.Verbosity Verbose (sprintf "Current directory is %s" System.Environment.CurrentDirectory)
-    log options.Verbosity Verbose (sprintf "Project directory is %s" options.Directories.ProjectDirectory)
-    let fullPath = System.IO.Path.Combine([|options.Directories.ProjectDirectory; options.Directories.SystemUnderTest; options.Application.Executable |])
-    log options.Verbosity Verbose (sprintf "About to start %s" (System.IO.Path.GetFullPath fullPath))
+let printOptions (arguments: Arguments) (project: Project) =
+    log arguments.Verbosity Verbose (sprintf "Current directory is %s" System.Environment.CurrentDirectory)
+    log arguments.Verbosity Verbose (sprintf "Project directory is %s" project.Directories.ProjectDirectory)
+    let fullPath = System.IO.Path.Combine([|project.Directories.ProjectDirectory; project.Directories.SystemUnderTest; project.Executable |])
+    log arguments.Verbosity Verbose (sprintf "About to start %s" (System.IO.Path.GetFullPath fullPath))
     
-let private initialize (options: Options) =
-    let force = forceDirectory options.Directories.ProjectDirectory
-    force options.Directories.SystemUnderTest
-    force options.Directories.Examples
-    force options.Directories.Findings
+let private initialize (project: Project) =
+    let force = forceDirectory project.Directories.ProjectDirectory
+    force project.Directories.SystemUnderTest
+    force project.Directories.Examples
+    force project.Directories.Findings
 
-let private executeTests (options: Options) =
-    printOptions options
-    let result = executeApplication options
+let private executeTests (arguments: Arguments) (project: Project) =
+    printOptions arguments project
+    let result = executeApplication project
     printfn "StdOut: %s" result.StdOut
     printfn "StdErr: %s" result.StdErr
     0
@@ -36,19 +37,20 @@ let private executeTests (options: Options) =
 let private reportVersion() =
     printfn "%A" (System.Reflection.Assembly.GetExecutingAssembly().GetName().Version)
 
-let private showHelp (options: Options) =
-    printfn "%s" (Options.helpString options)
+let private showHelp (options: Arguments) =
+    printfn "%s" (Arguments.helpString options)
 
 [<EntryPoint>]
 let main argv = 
     try
-        let options = Options.parse argv
+        let arguments = Arguments.parse argv
+        let project = Project.defaultProject
         let exitCode =
-            match options.Operation with
-            | Initialize    -> initialize options; 0
-            | ExecuteTests  -> executeTests options
+            match arguments.Operation with
+            | Initialize    -> initialize project; 0
+            | ExecuteTests  -> executeTests arguments project
             | ReportVersion -> reportVersion();    0
-            | ShowHelp      -> showHelp options;   0
+            | ShowHelp      -> showHelp arguments;   0
         if (System.Diagnostics.Debugger.IsAttached)
         then System.Console.ReadLine() |> ignore
         exitCode

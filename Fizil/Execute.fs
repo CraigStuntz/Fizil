@@ -2,14 +2,14 @@
 
 open System.Diagnostics
 open ExecutionResult
-open Options
+open Project
 open TestCase
 
-let executeApplication (options: Options) (testCase: TestCase) =
-    let workingDirectory = System.IO.Path.Combine [| options.Directories.ProjectDirectory; options.Directories.SystemUnderTest |]
+let executeApplication (project: Project) (testCase: TestCase) =
+    let workingDirectory = System.IO.Path.Combine [| project.Directories.ProjectDirectory; project.Directories.SystemUnderTest |]
     System.IO.Directory.SetCurrentDirectory(workingDirectory)
     use proc = new Process()
-    proc.StartInfo.FileName         <- options.Application.Executable
+    proc.StartInfo.FileName         <- project.Executable
     match testCase.Arguments with
         | Some args -> proc.StartInfo.Arguments <- args
         | None      -> () 

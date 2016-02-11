@@ -12,7 +12,7 @@ type Logger = Verbosity -> string -> unit
 let private shouldLog (argumentsVerbosity: Verbosity) (messageVerbosity: Verbosity) =
     match argumentsVerbosity with
     | Verbose  -> true
-    | Standard -> [ Verbose; Standard] |> List.contains messageVerbosity
+    | Standard -> [ Standard; Quiet ] |> List.contains messageVerbosity
     | Quiet    -> messageVerbosity = Quiet
 
 

@@ -16,7 +16,7 @@ let private bitFlip : FuzzStrategy =
     fun (bytes: byte[]) ->
         seq {
             for byte = 0 to bytes.Length - 1 do
-                for bit in [0 .. 7] do
+                for bit in 0 .. 7 do
                     let newBytes = Array.copy bytes
                     let newByte = flip bytes.[byte] bit
                     newBytes.[byte] <- newByte

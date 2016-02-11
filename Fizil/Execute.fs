@@ -5,6 +5,7 @@ open System.Linq
 open System.IO
 open System.Runtime.InteropServices
 open ExecutionResult
+open Log
 open Project
 open TestCase
 
@@ -22,11 +23,15 @@ type ErrorModes =
 extern ErrorModes SetErrorMode(ErrorModes uMode);
 
 
-let setWorkingDirectory (project: Project) =
+let initializeTestRun (project: Project) =
     Directory.SetCurrentDirectory(project.Directories.SystemUnderTest)
+    // Disable error reporting for this process. 
+    // That's inherited by child processes, so we don't get slowed by crash reporting.
+    // See https://blogs.msdn.microsoft.com/oldnewthing/20160204-00/?p=92972
+    SetErrorMode(ErrorModes.SEM_NOGPFAULTERRORBOX) |> ignore
 
 
-let private loadFile (project: Project) (filename: string) : byte[] =
+let private loadExampleFile (project: Project) (filename: string) : byte[] =
     let extension = (filename |> Path.GetExtension).ToLowerInvariant()
     if project.TextFileExtensions.Any(fun ext -> extension.Equals(ext, System.StringComparison.OrdinalIgnoreCase))
     then File.ReadAllText(filename) |> Convert.toBytes
@@ -37,7 +42,7 @@ let loadExamples (project: Project) : TestCase list =
     Directory.EnumerateFiles(project.Directories.Examples)
         |> Seq.map (fun filename -> 
             { 
-                Data          = loadFile project filename
+                Data          = loadExampleFile project filename
                 FileExtension = Path.GetExtension(filename) 
             } )
         |> List.ofSeq
@@ -67,3 +72,40 @@ let executeApplication (project: Project) (testCase: TestCase) =
         ExitCode = exitCode
         Crashed  = exitCode = ClrUnhandledExceptionCode
     }
+
+
+let private executeApplicationTestCase (log: Logger) (project: Project) (testCase: TestCase) =
+    log Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
+    let result = executeApplication project testCase
+    if (result.Crashed)
+    then log Standard "Process crashed!"
+    log Verbose (sprintf "StdOut: %s"    result.StdOut)
+    log Verbose (sprintf "StdErr: %s"    result.StdErr)
+    log Verbose (sprintf "Exit code: %i" result.ExitCode)
+    result
+
+
+let private logResults (log: Logger) (results: ExecutionResult.Result list) =
+    log Standard "Execution complete"
+    let testRuns = results |> List.length
+    let crashes  = results |> List.filter (fun result -> result.Crashed) |> List.length
+    log Standard (sprintf "  Total runs: %i" testRuns)
+    log Standard (sprintf "  Crashes:    %i" crashes)
+
+
+let allTests (log: Logger) (project: Project) =
+    match loadExamples project with
+    | [] ->
+        Log.error (sprintf "No example files found in %s" project.Directories.Examples)
+        ExitCodes.examplesNotFound
+    | examples ->
+        let fullPath = System.IO.Path.Combine(project.Directories.SystemUnderTest, project.Executable)
+        initializeTestRun project
+        log Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath fullPath))
+        let testCases = examples |> Fuzz.all
+        let results = 
+            testCases
+                |> Seq.map (executeApplicationTestCase log project)
+                |> List.ofSeq
+        logResults log results
+        ExitCodes.success

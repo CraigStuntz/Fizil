@@ -9,10 +9,11 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>Fizil</RootNamespace>
     <AssemblyName>Fizil</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <Name>Fizil</Name>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,13 +22,15 @@
     <Tailcalls>false</Tailcalls>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>3</WarningLevel>
+    <WarningLevel>5</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\Fizil.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>
     </StartWorkingDirectory>
     <StartArguments>--verbose</StartArguments>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -58,9 +61,9 @@
     <Compile Include="Fuzz.fs" />
     <Compile Include="Arguments.fs" />
     <Compile Include="Project.fs" />
+    <Compile Include="ExitCodes.fs" />
     <Compile Include="ExecutionResult.fs" />
     <Compile Include="Execute.fs" />
-    <Compile Include="ExitCodes.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <None Include="project.yaml" />

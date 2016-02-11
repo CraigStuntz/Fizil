@@ -23,8 +23,11 @@ let private executeApplication (log: Logger) (project: Project) =
         for example in examples |> Fuzz.all do
             log Verbose (sprintf "Test Case: %s" (example.Data |> Convert.toString))
             let result = Execute.executeApplication project example
-            log Verbose (sprintf "StdOut: %s" result.StdOut)
-            log Verbose (sprintf "StdErr: %s" result.StdErr)
+            if (result.Crashed)
+            then log Standard "Process crashed!"
+            log Verbose (sprintf "StdOut: %s"    result.StdOut)
+            log Verbose (sprintf "StdErr: %s"    result.StdErr)
+            log Verbose (sprintf "Exit code: %i" result.ExitCode)
         log Standard "Execution complete"
         ExitCodes.success
 

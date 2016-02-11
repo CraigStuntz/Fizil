@@ -1,6 +1,7 @@
 ﻿module Execute
 
 open System.Diagnostics
+open System.Linq
 open System.IO
 open System.Runtime.InteropServices
 open ExecutionResult
@@ -27,7 +28,7 @@ let setWorkingDirectory (project: Project) =
 
 let private loadFile (project: Project) (filename: string) : byte[] =
     let extension = (filename |> Path.GetExtension).ToLowerInvariant()
-    if project.TextFileExtensions |> Set.contains extension 
+    if project.TextFileExtensions.Any(fun ext -> extension.Equals(ext, System.StringComparison.OrdinalIgnoreCase))
     then File.ReadAllText(filename) |> Convert.toBytes
     else File.ReadAllBytes(filename)
 

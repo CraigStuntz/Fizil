@@ -1,36 +1,19 @@
 ﻿module Project
 
-
-type Directories = {
-    SystemUnderTest:  string
-    Examples:         string
-    Findings:         string
-    ProjectDirectory: string
-}
+open FSharp.Configuration
 
 
-type Project = {
-    Executable:         string
-    Directories:        Directories
-    TextFileExtensions: Set<string>
-}
-
-
-let private defaultDirectories (projectDirectory: string) =
-    {
-        SystemUnderTest  = System.IO.Path.Combine(projectDirectory, "system-under-test")
-        Examples         = System.IO.Path.Combine(projectDirectory, "examples")
-        Findings         = System.IO.Path.Combine(projectDirectory, "findings")
-        ProjectDirectory = projectDirectory
-    }
+type Project = YamlConfig<"project.yaml">
 
 
 let private defaultProject (projectDirectory: string) =
-    {
-        Executable         = "TinyTest.exe"
-        Directories        = defaultDirectories projectDirectory
-        TextFileExtensions = [ ".txt" ] |> List.map (fun s -> s.ToLowerInvariant()) |> set
-    }
+    let project = Project()
+    project.Executable                  <- "TinyTest.exe"
+    project.Directories.SystemUnderTest <- System.IO.Path.Combine(projectDirectory, "system-under-test")
+    project.Directories.Examples        <- System.IO.Path.Combine(projectDirectory, "examples")
+    project.Directories.Findings        <- System.IO.Path.Combine(projectDirectory, "findings")
+    project.TextFileExtensions          <- System.Collections.Generic.List([ ".txt" ])
+    project
 
 
 let private forceDirectory (root: string) (directory: string) =
@@ -39,12 +22,12 @@ let private forceDirectory (root: string) (directory: string) =
 
 
 let load (path: string) =
-    let projectDirectory = System.IO.Path.GetFullPath(System.IO.Path.Combine(System.Environment.CurrentDirectory, "..\..\..\Demo"))        
+    let projectDirectory = System.IO.Path.GetDirectoryName(path);        
     defaultProject projectDirectory
 
 
-let initialize (project: Project) =
-    let force = forceDirectory project.Directories.ProjectDirectory
+let initialize (project: Project) (projectDirectory: string) =
+    let force = forceDirectory projectDirectory
     force project.Directories.SystemUnderTest
     force project.Directories.Examples
     force project.Directories.Findings

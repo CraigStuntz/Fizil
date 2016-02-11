@@ -73,7 +73,7 @@ namespace TinyTest
         private static void E(string arg)
         {
             Console.WriteLine("E");
-            Environment.Exit(1);
+            throw new InvalidOperationException("E just failed!");
         }
 
         private static void F(string arg)

@@ -4,13 +4,21 @@ open Project
 open TestCase
 
 
-let executeApplication (log: Logger) (project: Project) =
+let private disableErrorReporting() =
+    // Disable error reporting for this process. 
+    // That's inherited by child processes, so we don't get slowed by crash reporting.
+    // See https://blogs.msdn.microsoft.com/oldnewthing/20160204-00/?p=92972
+    Execute.SetErrorMode(Execute.ErrorModes.SEM_NOGPFAULTERRORBOX) |> ignore    
+
+
+let private executeApplication (log: Logger) (project: Project) =
     match Execute.loadExamples project with
     | [] ->
         Log.error (sprintf "No example files found in %s" project.Directories.Examples)
         ExitCodes.examplesNotFound
     | examples ->
         let fullPath = System.IO.Path.Combine(project.Directories.SystemUnderTest, project.Executable)
+        disableErrorReporting()
         log Verbose (sprintf "About to start %s" (System.IO.Path.GetFullPath fullPath))
         for example in examples |> Fuzz.all do
             log Verbose (sprintf "Test Case: %s" (example.Data |> Convert.toString))
@@ -21,7 +29,7 @@ let executeApplication (log: Logger) (project: Project) =
         ExitCodes.success
 
 
-let printOptions (log: Logger) (arguments: Arguments) (project: Project) =
+let private printOptions (log: Logger) (arguments: Arguments) (project: Project) =
     log Verbose (sprintf "Current directory is %s" System.Environment.CurrentDirectory)
     log Verbose (sprintf "Project directory is %s" project.Directories.ProjectDirectory)
 

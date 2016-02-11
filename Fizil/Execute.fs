@@ -2,9 +2,23 @@
 
 open System.Diagnostics
 open System.IO
+open System.Runtime.InteropServices
 open ExecutionResult
 open Project
 open TestCase
+
+
+[<System.Flags>]
+type ErrorModes =
+    | SYSTEM_DEFAULT             = 0us
+    | SEM_FAILCRITICALERRORS     = 1us
+    | SEM_NOALIGNMENTFAULTEXCEPT = 4us
+    | SEM_NOGPFAULTERRORBOX      = 2us
+    | SEM_NOOPENFILEERRORBOX     = 32768us
+
+
+[<DllImport("kernel32.dll")>]
+extern ErrorModes SetErrorMode(ErrorModes uMode);
 
 
 let setWorkingDirectory (project: Project) =
@@ -26,7 +40,6 @@ let loadExamples (project: Project) : TestCase list =
                 FileExtension = Path.GetExtension(filename) 
             } )
         |> List.ofSeq
-
 
 
 let executeApplication (project: Project) (testCase: TestCase) =

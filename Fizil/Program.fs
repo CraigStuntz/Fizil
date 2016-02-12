@@ -11,6 +11,7 @@ let private reportVersion() =
 let private showHelp (options: Arguments) =
     printfn "%s" (Arguments.helpString options)
 
+
 let private waitIfDebugging() =
     if (System.Diagnostics.Debugger.IsAttached)
     then

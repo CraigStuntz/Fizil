@@ -57,7 +57,6 @@ let load (pathAndFilename: string) =
         let project = Project()
         project.Load pathAndFilename
         Some (makeDirectoriesAbsolute project pathAndFilename)
-
     | false ->
         None 
 
@@ -65,6 +64,7 @@ let load (pathAndFilename: string) =
 let save (project: Project) (pathAndFilename: string) : unit = 
     makeDirectoriesRelativeTo project pathAndFilename |> ignore
     project.Save pathAndFilename
+
 
 let private loadProjectOrDefault (log: Logger) (path: string) =
     let filename = projectFilename path

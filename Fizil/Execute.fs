@@ -34,8 +34,6 @@ let loadExamples (project: Project) : TestCase list =
         |> List.ofSeq
 
 
-let private ClrUnhandledExceptionCode = -532462766
-
 let executeApplication (project: Project) (testCase: TestCase) =
     use proc = new Process()
     proc.StartInfo.FileName               <- project.Executable
@@ -56,7 +54,7 @@ let executeApplication (project: Project) (testCase: TestCase) =
         StdErr   = err
         StdOut   = output
         ExitCode = exitCode
-        Crashed  = exitCode = ClrUnhandledExceptionCode
+        Crashed  = exitCode = WinApi.ClrUnhandledExceptionCode
     }
 
 

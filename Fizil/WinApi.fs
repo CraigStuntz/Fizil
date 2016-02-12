@@ -25,6 +25,10 @@ let disableCrashReporting() =
     SetErrorMode(ErrorModes.SEM_NOGPFAULTERRORBOX) |> ignore
 
 
+// Exit codes
+let ClrUnhandledExceptionCode = -532462766
+
+
 // Paths
 
 let private FILE_ATTRIBUTE_DIRECTORY : int = 0x10

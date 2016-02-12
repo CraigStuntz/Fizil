@@ -17,6 +17,7 @@ Demo/system-under-test/TinyTest.exe.config
 *.suo
 *.user
 *.sln.docstates
+.vs/config/applicationhost.config
 
 # Build results
 
@@ -110,7 +111,6 @@ publish/
 .paket/paket.exe
 
 # NuGet Packages Directory
-## TODO: If you have NuGet Package Restore enabled, uncomment the next line
 packages/
 
 # Windows Azure Build Output

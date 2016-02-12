@@ -3,24 +3,10 @@
 open System.Diagnostics
 open System.Linq
 open System.IO
-open System.Runtime.InteropServices
 open ExecutionResult
 open Log
 open Project
 open TestCase
-
-
-[<System.Flags>]
-type ErrorModes =
-    | SYSTEM_DEFAULT             = 0us
-    | SEM_FAILCRITICALERRORS     = 1us
-    | SEM_NOALIGNMENTFAULTEXCEPT = 4us
-    | SEM_NOGPFAULTERRORBOX      = 2us
-    | SEM_NOOPENFILEERRORBOX     = 32768us
-
-
-[<DllImport("kernel32.dll")>]
-extern ErrorModes SetErrorMode(ErrorModes uMode);
 
 
 let initializeTestRun (project: Project) =
@@ -28,7 +14,7 @@ let initializeTestRun (project: Project) =
     // Disable error reporting for this process. 
     // That's inherited by child processes, so we don't get slowed by crash reporting.
     // See https://blogs.msdn.microsoft.com/oldnewthing/20160204-00/?p=92972
-    SetErrorMode(ErrorModes.SEM_NOGPFAULTERRORBOX) |> ignore
+    WinApi.disableCrashReporting()
 
 
 let private loadExampleFile (project: Project) (filename: string) : byte[] =

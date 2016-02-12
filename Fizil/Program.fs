@@ -25,14 +25,18 @@ let main argv =
         let log              = Log.create arguments.Verbosity
         let projectFile      = System.IO.Path.GetFullPath(System.IO.Path.Combine(System.Environment.CurrentDirectory, "..\..\..\Demo\project.yaml"))
         let projectDirectory = System.IO.Path.GetDirectoryName projectFile
-        let project          = Project.load projectFile
         let exitCode =
             match arguments.Operation with
-            | Initialize    
-                -> Project.initialize project projectDirectory
-                   ExitCodes.success
-            | ExecuteTests  
-                -> Execute.allTests log project
+            | Initialize -> 
+                Project.initialize log projectDirectory
+                ExitCodes.success
+            | ExecuteTests -> 
+                match Project.load projectFile with
+                | Some project -> 
+                    Execute.allTests log project
+                | None -> 
+                    Log.error (sprintf "Project file %s not found" projectFile)
+                    ExitCodes.projectFileNotFound
             | ReportVersion 
                 -> reportVersion()
                    ExitCodes.success

@@ -1,0 +1,7 @@
+Directories:
+  SystemUnderTest: .\system-under-test
+  Examples: .\examples
+  Findings: .\findings
+Executable: TinyTest.exe
+TextFileExtensions:
+  - .txt

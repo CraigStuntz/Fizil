@@ -57,6 +57,7 @@
     <Compile Include="Convert.fs" />
     <Compile Include="Log.fs" />
     <Compile Include="WinApi.fs" />
+    <Compile Include="SharedMemory.fs" />
     <Compile Include="TestCase.fs" />
     <Compile Include="FuzzStrategies.fs" />
     <Compile Include="Fuzz.fs" />

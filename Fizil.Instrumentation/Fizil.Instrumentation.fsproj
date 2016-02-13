@@ -5,15 +5,14 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>3102e28f-605f-467b-a861-f916ba175fe9</ProjectGuid>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>Fizil</RootNamespace>
-    <AssemblyName>Fizil</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <ProjectGuid>5aba511e-4e97-4df9-902f-48efa4090d92</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Fizil.Instrumentation</RootNamespace>
+    <AssemblyName>Fizil.Instrumentation</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
-    <Name>Fizil</Name>
-    <TargetFrameworkProfile />
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Name>Fizil.Instrumentation</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,15 +21,8 @@
     <Tailcalls>false</Tailcalls>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <WarningLevel>5</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Debug\Fizil.XML</DocumentationFile>
-    <Prefer32Bit>true</Prefer32Bit>
-    <StartWorkingDirectory>
-    </StartWorkingDirectory>
-    <StartArguments>--verbose</StartArguments>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <WarningsAsErrors />
+    <WarningLevel>3</WarningLevel>
+    <DocumentationFile>bin\Debug\Fizil.Instrumentation.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -39,9 +31,7 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>bin\Release\Fizil.XML</DocumentationFile>
-    <Prefer32Bit>true</Prefer32Bit>
+    <DocumentationFile>bin\Release\Fizil.Instrumentation.XML</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -54,28 +44,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Convert.fs" />
-    <Compile Include="Log.fs" />
-    <Compile Include="WinApi.fs" />
-    <Compile Include="TestCase.fs" />
-    <Compile Include="FuzzStrategies.fs" />
-    <Compile Include="Fuzz.fs" />
-    <Compile Include="Arguments.fs" />
-    <Compile Include="Project.fs" />
-    <Compile Include="ExitCodes.fs" />
-    <Compile Include="ExecutionResult.fs" />
-    <Compile Include="Execute.fs" />
-    <Compile Include="Program.fs" />
-    <None Include="App.config" />
-    <None Include="project.yaml" />
-    <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Fizil.Instrumentation\Fizil.Instrumentation.fsproj">
-      <Name>Fizil.Instrumentation</Name>
-      <Project>{5aba511e-4e97-4df9-902f-48efa4090d92}</Project>
-      <Private>True</Private>
-    </ProjectReference>
+    <Compile Include="SharedMemory.fs" />
+    <Compile Include="Instrument.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -100,20 +70,4 @@
   <Target Name="AfterBuild">
   </Target>
   -->
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
-      <ItemGroup>
-        <Reference Include="FSharp.Configuration">
-          <HintPath>..\packages\FSharp.Configuration\lib\net40\FSharp.Configuration.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="SharpYaml">
-          <HintPath>..\packages\FSharp.Configuration\lib\net40\SharpYaml.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
 </Project>

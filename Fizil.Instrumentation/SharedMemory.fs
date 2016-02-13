@@ -4,8 +4,8 @@ open System.IO
 open System.IO.MemoryMappedFiles
 
 
-let private mapSize32 = System.Convert.ToInt32(System.UInt16.MaxValue) + 1
-let private mapSize64 = System.Convert.ToInt64(mapSize32)
+let private mapSize32 = (System.UInt16.MaxValue |> int32) + 1
+let private mapSize64 = mapSize32 |> int64
 
 let private mapName = "Fizil-shared-memory"
 
@@ -20,6 +20,19 @@ let create() =
         MemoryMappedFileAccess.ReadWrite,
         MemoryMappedFileOptions.None,
         HandleInheritability.Inheritable)
+
+let openMemory() =
+    MemoryMappedFile.OpenExisting(
+        mapName,
+        MemoryMappedFileRights.ReadWrite)
+
+
+let incrementByte(sharedMemory : MemoryMappedFile) (address: uint16) =
+    let offset = address |> int64
+    let accessor = sharedMemory.CreateViewAccessor(offset, 1L)
+    let b = accessor.ReadByte(0L)
+    accessor.Write(0L, b + 1uy)
+
 
 let readBytes(sharedMemory: MemoryMappedFile) : byte[] =
     let stream = sharedMemory.CreateViewStream(0L, 0L, MemoryMappedFileAccess.Read)

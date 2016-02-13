@@ -2,8 +2,7 @@
 ## Fizil
 #################
 
-Demo/system-under-test/TinyTest.exe
-Demo/system-under-test/TinyTest.exe.config
+Demo/system-under-test/*
 
 
 #################

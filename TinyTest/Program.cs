@@ -13,8 +13,7 @@ namespace TinyTest
         {
             using (instrument = new Instrument())
             {
-                instrument.Trace(0);
-                // instrument.Trace(50460);
+                instrument.Trace(50460);
                 if (args != null && args.Length > 0)
                 {
                     var arg = args.First();

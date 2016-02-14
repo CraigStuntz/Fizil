@@ -1,5 +1,6 @@
 ﻿module Execute
 
+open System.Collections.Generic
 open System.Diagnostics
 open System.Linq
 open System.IO
@@ -13,9 +14,9 @@ type private ExecutionState = {
     /// Actual shared memory value from previous test run.
     /// Compare current test run final value with this to determine if 
     /// fuzzer found any new paths.
-    BaselineSharedMemory: byte[]
-    SharedMemory:         System.IO.MemoryMappedFiles.MemoryMappedFile
-    Results:              Result list
+    Hash:          System.Security.Cryptography.HashAlgorithm
+    ObservedPaths: HashSet<string>
+    Results:       Result list
 }
 
 let initializeTestRun (project: Project) =
@@ -68,14 +69,25 @@ let executeApplication (project: Project) (testCase: TestCase) =
     }
 
 
+let toHexString (bytes: byte[]) : string =
+    let sBuilder = System.Text.StringBuilder()
+    bytes |> Array.iter (fun b -> (sBuilder.Append(b.ToString("x2")) |> ignore))
+    sBuilder.ToString()
+
+
+let private getHash (hash: System.Security.Cryptography.HashAlgorithm) (bytes: byte[]) =
+    hash.ComputeHash(bytes)
+        |> toHexString
+
+
 let private executeApplicationTestCase (log: Logger) (project: Project) (state: ExecutionState) (testCase: TestCase) =
     log Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
+    use sharedMemory = SharedMemory.create()
     let result = executeApplication project testCase
-    let finalSharedMemory = state.SharedMemory |> SharedMemory.readBytes 
-    let resultWithNewPaths = 
-        match state.BaselineSharedMemory = finalSharedMemory with
-        | true  -> result
-        | false -> { result with NewPathFound = true }
+    let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
+    let hashed = getHash state.Hash finalSharedMemory
+    let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
+    let resultWithNewPaths = { result with NewPathFound = newPathFound }
     if (resultWithNewPaths.Crashed)
     then log Standard "Process crashed!"
     if (resultWithNewPaths.NewPathFound)
@@ -84,8 +96,7 @@ let private executeApplicationTestCase (log: Logger) (project: Project) (state: 
     log Verbose (sprintf "StdErr: %s"    resultWithNewPaths.StdErr)
     log Verbose (sprintf "Exit code: %i" resultWithNewPaths.ExitCode)
     { state with
-        BaselineSharedMemory = finalSharedMemory
-        Results              = resultWithNewPaths :: state.Results
+        Results = resultWithNewPaths :: state.Results
     }
 
 
@@ -109,12 +120,12 @@ let allTests (log: Logger) (project: Project) =
         let fullPath = System.IO.Path.Combine(project.Directories.SystemUnderTest, project.Executable)
         initializeTestRun project
         log Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath fullPath))
-        use sharedMemory = SharedMemory.create()
         let testCases = examples |> Fuzz.all
+        use md5 = System.Security.Cryptography.MD5.Create()
         let initialState = {
-            BaselineSharedMemory = sharedMemory |> SharedMemory.readBytes
-            SharedMemory         = sharedMemory
-            Results              = []
+            Hash          = md5
+            ObservedPaths = HashSet<string>()
+            Results       = []
         }
         let finalState = 
             testCases

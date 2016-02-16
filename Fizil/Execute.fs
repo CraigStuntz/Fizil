@@ -4,6 +4,7 @@ open System.Collections.Generic
 open System.Diagnostics
 open System.Linq
 open System.IO
+open Fizil.Properties
 open ExecutionResult
 open Log
 open Project
@@ -44,7 +45,16 @@ let loadExamples (project: Project) : TestCase list =
         |> List.ofSeq
 
 
-let executeApplication (project: Project) (testCase: TestCase) =
+let private checkProperties (propertyCheckers: IPropertyChecker list) (testRun: TestRun) : PropertyCheckResult list =
+    match testRun.ExitCode with
+    | ExitCodes.success -> 
+        propertyCheckers 
+            |> List.collect (fun propertyChecker -> propertyChecker.SuccessfulExecutionProperties |> List.ofSeq) 
+            |> List.map (fun prop -> prop.CheckSuccessfulExecution testRun )
+    | _ -> []
+
+
+let private executeApplication (project: Project) (propertyCheckers: IPropertyChecker list) (testCase: TestCase) =
     use proc = new Process()
     proc.StartInfo.FileName               <- project.Executable
     proc.StartInfo.Arguments              <- Convert.toString testCase.Data
@@ -59,13 +69,24 @@ let executeApplication (project: Project) (testCase: TestCase) =
 
     proc.WaitForExit()
     let exitCode = proc.ExitCode
+
+    let testRun = {
+        Input    = testCase.Data
+        ExitCode = exitCode
+        StdErr   = err
+        StdOut   = output
+    }
+    let propertyViolations = 
+        checkProperties propertyCheckers testRun
+        |> List.filter (fun propertyCheckResult -> not <| propertyCheckResult.Verified )
     proc.Close()
     {
-        StdErr       = err
-        StdOut       = output
-        ExitCode     = exitCode
-        Crashed      = exitCode = WinApi.ClrUnhandledExceptionCode
-        NewPathFound = false
+        StdErr             = err
+        StdOut             = output
+        ExitCode           = exitCode
+        Crashed            = exitCode = WinApi.ClrUnhandledExceptionCode
+        NewPathFound       = false
+        PropertyViolations = propertyViolations
     }
 
 
@@ -80,10 +101,27 @@ let private getHash (hash: System.Security.Cryptography.HashAlgorithm) (bytes: b
         |> toHexString
 
 
+let private getPropertyCheckers() : IPropertyChecker list =
+    [ new Fizil.Test.TestProperties() :> IPropertyChecker ]
+
+
+let private formatPropertyViolations (violations: PropertyCheckResult list) =
+    let header = "Property violations: "
+    let violationMessages = 
+        violations 
+        |> List.map (fun violation -> violation.Message)
+        |> String.concat System.Environment.NewLine
+    sprintf "%s%s%s" header System.Environment.NewLine violationMessages
+
+
+let private hasPropertyViolations (result : Result) = 
+    not <| List.isEmpty result.PropertyViolations
+
+
 let private executeApplicationTestCase (log: Logger) (project: Project) (state: ExecutionState) (testCase: TestCase) =
     log Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
     use sharedMemory = SharedMemory.create()
-    let result = executeApplication project testCase
+    let result = executeApplication project (getPropertyCheckers()) testCase
     let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
     let hashed = getHash state.Hash finalSharedMemory
     let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
@@ -95,6 +133,8 @@ let private executeApplicationTestCase (log: Logger) (project: Project) (state: 
     log Verbose (sprintf "StdOut: %s"    resultWithNewPaths.StdOut)
     log Verbose (sprintf "StdErr: %s"    resultWithNewPaths.StdErr)
     log Verbose (sprintf "Exit code: %i" resultWithNewPaths.ExitCode)
+    if (resultWithNewPaths |> hasPropertyViolations)
+    then log Verbose (resultWithNewPaths.PropertyViolations |> formatPropertyViolations)
     { state with
         Results = resultWithNewPaths :: state.Results
     }
@@ -102,12 +142,14 @@ let private executeApplicationTestCase (log: Logger) (project: Project) (state: 
 
 let private logResults (log: Logger) (results: ExecutionResult.Result list) =
     log Standard "Execution complete"
-    let testRuns = results |> List.length
-    let crashes  = results |> List.filter (fun result -> result.Crashed)      |> List.length
-    let paths    = results |> List.filter (fun result -> result.NewPathFound) |> List.length
-    log Standard (sprintf "  Total runs:  %i" testRuns)
-    log Standard (sprintf "  Crashes:     %i" crashes)
-    log Standard (sprintf "  Total paths: %i" paths)
+    let testRuns   = results |> List.length
+    let crashes    = results |> List.filter (fun result -> result.Crashed)      |> List.length
+    let paths      = results |> List.filter (fun result -> result.NewPathFound) |> List.length
+    let violations = results |> List.filter hasPropertyViolations               |> List.length
+    log Standard (sprintf "  Total runs:                %i" testRuns)
+    log Standard (sprintf "  Crashes:                   %i" crashes)
+    log Standard (sprintf "  Total paths:               %i" paths)
+    log Standard (sprintf "  Total property violations: %i" violations)
 
 
 

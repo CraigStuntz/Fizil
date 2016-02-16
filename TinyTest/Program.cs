@@ -67,14 +67,14 @@ namespace TinyTest
         private static void C(string arg)
         {
             instrument.Trace(61360);
-            Console.WriteLine("C");
+            Console.WriteLine("c");
             Environment.Exit(0);
         }
 
         private static void D(string arg)
         {
             instrument.Trace(516);
-            Console.WriteLine("D");
+            Console.WriteLine("d");
             Console.WriteLine("Exiting!");
             Environment.Exit(0);
         }
@@ -82,14 +82,14 @@ namespace TinyTest
         private static void E(string arg)
         {
             instrument.Trace(37587);
-            Console.WriteLine("E");
+            Console.WriteLine("e");
             throw new InvalidOperationException("E just failed!");
         }
 
         private static void F(string arg)
         {
             instrument.Trace(29875);
-            Console.WriteLine("F");
+            Console.WriteLine("f");
             Console.Error.WriteLine("Error!");
             Environment.Exit(1);
         }

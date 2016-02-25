@@ -28,7 +28,7 @@
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>
     </StartWorkingDirectory>
-    <StartArguments>--verbose</StartArguments>
+    <StartArguments>--verbose ..\..\..\Demo\project.yaml</StartArguments>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
   </PropertyGroup>

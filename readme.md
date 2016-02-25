@@ -20,6 +20,20 @@ In the meantime, use [AFL](http://lcamtuf.coredump.cx/afl/) if you want to do re
 | Stable                                 | No way       | Yes             |
 | License                                | Apache 2.0   | Apache 2.0      |
 
+## Getting Started
+1. Clone repo, `cd` into root (solution) directory
+2. Restore packages (only needed first time)
+  1. `./.paket/paket.bootstrapper.exe` 
+  2. `./.paket/paket.exe install`
+3. Build (in VS or from the command line just type `msbuild` if it's in your path)
+4. Init demo project (only needed first time). Use `--init`. Two ways you can do this:
+  1. In VS, right click Fizil project, Properties, Debug, add `--init` to Command line arguments
+  2. From command line, `Fizil\bin\Debug\Fizil.exe --init`
+5. Run from VS or command line.
+  1. In VS, press F5
+  2. From command line, `Fizil\bin\Debug\Fizil.exe`
+Instrumentation is manual now (see `TinyTest\Program.cs`). This is terrible and will change soon!
+
 ## Gratitude
 
 This project is heavily inspired by [AFL](http://lcamtuf.coredump.cx/afl/) and [QuickCheck](http://www.cse.chalmers.se/~rjmh/QuickCheck/manual.html).

@@ -5,6 +5,7 @@ open Log
 
 type Operation = 
     | Initialize
+    | Instrument
     | ExecuteTests
     | ReportVersion
     | ShowHelp
@@ -27,11 +28,12 @@ let defaultArguments =
 
 let helpString (arguments: Arguments) = 
     """Usage: Fizil [OPTION] [path/to/project.yaml]
-  --help    Display this help message
-  --init    Create working directories
-  --quiet   Suppress all non-error command line output
-  --verbose Display additional status information on command line output
-  --version Report version
+  --help       Display this help message
+  --init       Create working directories
+  --instrument Instrument binaries in system under test folder
+  --quiet      Suppress all non-error command line output
+  --verbose    Display additional status information on command line output
+  --version    Report version
   
   If project filename is not specified, Fizil will look for project.yaml in current directory"""
 
@@ -48,6 +50,8 @@ let rec private parseArgument (accum: Arguments) (argv: string list) =
         -> accum 
     | "--init"   :: rest 
         -> parseArgument { accum with Operation = Initialize }    rest
+    | "--instrument"   :: rest 
+        -> parseArgument { accum with Operation = Instrument }    rest
     | "--quiet"   :: rest 
         -> parseArgument { accum with Verbosity = Quiet }         rest
     | "--verbose" :: rest 

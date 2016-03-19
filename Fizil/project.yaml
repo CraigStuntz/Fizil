@@ -1,9 +1,21 @@
 ﻿Directories:
     SystemUnderTest: system-under-test
+    Instrumented: instrumented
     Examples: examples
     Findings: findings
 
 Executable: TinyTest.exe
+
+Instrument:
+    Include:
+        - "*.exe"
+        - "*.dll"
+    Exclude:
+        - Fizil.Properties.dll
+        - FSharp.Core.dll
+        - Mono.Cecil.dll
+        - Mono.Cecil.Rocks.dll
+        - TinyTest.vshost.exe
 
 TextFileExtensions: 
     - .txt

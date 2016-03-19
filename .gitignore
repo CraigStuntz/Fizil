@@ -3,6 +3,7 @@
 #################
 
 Demo/system-under-test/*
+Demo/instrumented/*
 
 
 #################

@@ -54,9 +54,9 @@ let private checkProperties (propertyCheckers: IPropertyChecker list) (testRun: 
     | _ -> []
 
 
-let private executeApplication (project: Project) (propertyCheckers: IPropertyChecker list) (testCase: TestCase) =
+let private executeApplication (executablePath: string) (propertyCheckers: IPropertyChecker list) (testCase: TestCase) =
     use proc = new Process()
-    proc.StartInfo.FileName               <- project.Executable
+    proc.StartInfo.FileName               <- executablePath
     proc.StartInfo.Arguments              <- Convert.toString testCase.Data
     proc.StartInfo.UseShellExecute        <- false
     proc.StartInfo.RedirectStandardOutput <- true
@@ -118,10 +118,10 @@ let private hasPropertyViolations (result : Result) =
     not <| List.isEmpty result.PropertyViolations
 
 
-let private executeApplicationTestCase (log: Logger) (project: Project) (state: ExecutionState) (testCase: TestCase) =
+let private executeApplicationTestCase (log: Logger) (executablePath) (state: ExecutionState) (testCase: TestCase) =
     log Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
     use sharedMemory = SharedMemory.create()
-    let result = executeApplication project (getPropertyCheckers()) testCase
+    let result = executeApplication executablePath (getPropertyCheckers()) testCase
     let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
     let hashed = getHash state.Hash finalSharedMemory
     let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
@@ -159,9 +159,11 @@ let allTests (log: Logger) (project: Project) =
         Log.error (sprintf "No example files found in %s" project.Directories.Examples)
         ExitCodes.examplesNotFound
     | examples ->
-        let fullPath = System.IO.Path.Combine(project.Directories.SystemUnderTest, project.Executable)
+        let sutExe          = System.IO.Path.Combine(project.Directories.SystemUnderTest, project.Executable)
+        let instrumentedExe = System.IO.Path.Combine(project.Directories.Instrumented, project.Executable)
+        let executablePath        = if System.IO.File.Exists instrumentedExe then instrumentedExe else sutExe
         initializeTestRun project
-        log Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath fullPath))
+        log Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
         let testCases = examples |> Fuzz.all
         use md5 = System.Security.Cryptography.MD5.Create()
         let initialState = {
@@ -171,6 +173,6 @@ let allTests (log: Logger) (project: Project) =
         }
         let finalState = 
             testCases
-                |> Seq.fold (executeApplicationTestCase log project) initialState
+                |> Seq.fold (executeApplicationTestCase log executablePath) initialState
         logResults log finalState.Results
         ExitCodes.success

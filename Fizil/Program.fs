@@ -24,12 +24,20 @@ let main argv =
     try
         let arguments        = Arguments.parse argv
         let log              = Log.create arguments.Verbosity
-        let projectDirectory = System.IO.Path.GetDirectoryName arguments.ProjectFileName
         let exitCode =
             match arguments.Operation with
             | Initialize -> 
+                let projectDirectory = System.IO.Path.GetDirectoryName arguments.ProjectFileName                
                 Project.initialize log projectDirectory
                 ExitCodes.success
+            | Instrument -> 
+                match Project.load arguments.ProjectFileName with
+                | Some project -> 
+                    Instrument.project(project, log)
+                    ExitCodes.success
+                | None -> 
+                    Log.error (sprintf "Project file %s not found" arguments.ProjectFileName)
+                    ExitCodes.projectFileNotFound
             | ExecuteTests -> 
                 match Project.load arguments.ProjectFileName with
                 | Some project -> 

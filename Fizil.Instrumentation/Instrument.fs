@@ -9,7 +9,7 @@ type Instrument() =
 
     let mutable sharedMemory     : MemoryMappedFile = SharedMemory.openMemory()
 
-
+    static member TraceMethodName = "Trace" 
     member this.Trace (currentLocation: uint16) =
         let address = currentLocation ^^^ previousLocation
         SharedMemory.incrementByte sharedMemory address

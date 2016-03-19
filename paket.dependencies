@@ -1,3 +1,4 @@
 source https://nuget.org/api/v2
 
 nuget FSharp.Configuration
+nuget Mono.Cecil

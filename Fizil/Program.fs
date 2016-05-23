@@ -22,6 +22,7 @@ let private waitIfDebugging() =
 [<EntryPoint>]
 let main argv = 
     try
+        System.Console.BufferHeight <- int(System.Int16.MaxValue) - 1
         let arguments        = Arguments.parse argv
         let log              = Log.create arguments.Verbosity
         let exitCode =

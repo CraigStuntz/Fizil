@@ -12,7 +12,6 @@ In the meantime, use [AFL](http://lcamtuf.coredump.cx/afl/) if you want to do re
 | Fast                                   | No              | Yep!               |
 | Instrumentation guided                 | Soon?           | Yep!               |
 | Automatic instrumentation              | .NET assemblies | Clang, GCC, Python |
-| Binary instrumentation                 | In progress     | No?                |
 | Rich suite of fuzzing strategies       | Not yet!        | Yes!               |
 | Automatically disables crash reporting | Yep!            | Nope               |
 | Property based testing                 | In progress     | Don't think so?    |

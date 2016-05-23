@@ -39,7 +39,9 @@ let private instrumentMethod (state: InstrumentState) (definition: MethodDefinit
 
 
 let private instrumentType (state: InstrumentState) (definition: TypeDefinition) = 
-    definition.Methods |> Seq.iter (instrumentMethod state)
+    definition.Methods 
+        |> Seq.filter (fun def -> def.Body <> null)
+        |> Seq.iter (instrumentMethod state)
 
 
 //   Entry point instrumentation...
@@ -60,40 +62,49 @@ let private instrumentType (state: InstrumentState) (definition: TypeDefinition)
 //   IL_0084:  ret
 // }  // end of method Program::Main
 
+[<NoComparison>]
+type MethodReturnType = 
+    | ReturnsVoid
+    | ReturnsNonVoid of VariableDefinition
 
-let private rewriteRetAndFixup(index: int, target: Instruction, instructions: Collection<Instruction>) =
-    let ret = instructions.[index]
+let private rewriteRetAndFixup(ret: Instruction, target: Instruction, ilProcessor: ILProcessor, originalInstructions: Collection<Instruction>, returnType: MethodReturnType) =
     let leave = Instruction.Create(OpCodes.Leave, target)
-    instructions.[index] <- leave
+    ilProcessor.Replace(ret, leave)
+    match returnType with
+    | ReturnsNonVoid returnVariable -> ilProcessor.InsertBefore(leave, Instruction.Create(OpCodes.Stloc, returnVariable))
+    | ReturnsVoid -> ()
     
-    instructions |> Seq.iteri (fun index instruction -> 
+    // Any instruction which jumped to the old ret should now jump to the new leave
+    originalInstructions |> Seq.iteri (fun index instruction -> 
         if ret.Equals(instruction.Operand)
-        then instructions.[index] <- Instruction.Create(instruction.OpCode, leave)
+        then ilProcessor.Replace(instruction, Instruction.Create(instruction.OpCode, leave))
     )
     
 
 let private convertRetsToLeaves(methodDefinition: MethodDefinition, ilProcessor: ILProcessor) : Instruction =
     let instructions = methodDefinition.Body.Instructions
+    let originalInstructions = Collection<Instruction>(instructions) 
     let lastRet = ilProcessor.Create(OpCodes.Ret)
     ilProcessor.Append lastRet
     if methodDefinition.ReturnType = methodDefinition.Module.TypeSystem.Void 
     then
-        instructions |> Seq.iteri (fun index instruction ->
+        originalInstructions |> Seq.iteri (fun index instruction ->
                 if instruction.OpCode = OpCodes.Ret && (instruction <> lastRet)
-                then rewriteRetAndFixup(index, lastRet, instructions)
+                then rewriteRetAndFixup(instruction, lastRet, ilProcessor, originalInstructions, ReturnsVoid)
             )
+        lastRet
     else
         let returnVariable = VariableDefinition("<>v__return", methodDefinition.ReturnType)
         methodDefinition.Body.Variables.Add(returnVariable)
         let lastLd = Instruction.Create(OpCodes.Ldloc, returnVariable)
         ilProcessor.InsertBefore(lastRet, lastLd)
-        instructions |> Seq.iteri (fun index instruction ->
+        // will be mutating original collection, so make a copy to iterate
+        originalInstructions |> Seq.iteri (fun index instruction ->
                 if (instruction.OpCode = OpCodes.Ret && instruction <> lastRet)
                 then 
-                    rewriteRetAndFixup(index, lastLd, instructions)
-                    instructions.Insert(index, Instruction.Create(OpCodes.Stloc, returnVariable))
+                    rewriteRetAndFixup(instruction, lastLd, ilProcessor, originalInstructions, ReturnsNonVoid returnVariable)
             )
-    instructions.Where(fun inst -> inst.OpCode = OpCodes.Leave).Last()
+        lastLd
     
 
 [<Literal>]
@@ -117,7 +128,7 @@ let private instrumentEntryPoint(assembly: AssemblyDefinition) : FieldReference 
     let disposeMethodRef  = assembly.EntryPoint.Module.Import(typeof<System.IDisposable>.GetMethod("Dispose"))
     let callDispose       = ilProcessor.Create(OpCodes.Callvirt, disposeMethodRef)
     let existingFirstInst = body.Instructions.First()
-    let existingLastInst  = convertRetsToLeaves(assembly.EntryPoint, ilProcessor)
+    let newExitInsts      = convertRetsToLeaves(assembly.EntryPoint, ilProcessor)
     // before try
     ilProcessor.InsertBefore(existingFirstInst, ilProcessor.Create(OpCodes.Newobj, instrumentCtorRef))
     ilProcessor.InsertBefore(existingFirstInst, ilProcessor.Create(OpCodes.Dup))
@@ -126,29 +137,42 @@ let private instrumentEntryPoint(assembly: AssemblyDefinition) : FieldReference 
     // try block here
     //    ... existing code
     // finally block
-    ilProcessor.InsertAfter(existingLastInst, ldloc)
+    ilProcessor.InsertBefore(newExitInsts, ldloc)
     ilProcessor.InsertAfter(ldloc, callDispose)
     ilProcessor.InsertAfter(callDispose, ilProcessor.Create(OpCodes.Endfinally))
     let finallyHandler    = ExceptionHandler(ExceptionHandlerType.Finally)
     finallyHandler.TryStart     <- existingFirstInst
     finallyHandler.TryEnd       <- ldloc
     finallyHandler.HandlerStart <- ldloc
-    finallyHandler.HandlerEnd   <- body.Instructions.Last()
+    finallyHandler.HandlerEnd   <- newExitInsts
     body.ExceptionHandlers.Add finallyHandler
     // end finally
     body.OptimizeMacros()
     instrumentFieldDef :> FieldReference
 
 
-let instrumentAssembly (assemblyFilename: string, outputFileName: string) =
+let instrumentExecutable (assemblyFilename: string, outputFileName: string) =
     let assembly     = AssemblyDefinition.ReadAssembly assemblyFilename
-    if assembly.EntryPoint <> null // TODO: Handle this case!
+    if assembly.EntryPoint = null 
     then 
+        failwith "TODO: Handle this case!"
+    else 
         let instrument   = instrumentEntryPoint assembly
         let trace        = assembly.MainModule.Import traceMethod
         let initialState = { Instrument = instrument; Random = Random(); Trace = trace }
         let mainModuleTypes = assembly.MainModule.Types
         mainModuleTypes |> Seq.iter (instrumentType initialState)
         assembly.Write outputFileName
+        instrument
+
+
+let instrumentDependency (assemblyFilename: string, outputFileName: string, instrument: FieldReference) =
+    let assembly     = AssemblyDefinition.ReadAssembly assemblyFilename
+    let instRef      = assembly.MainModule.Import instrument
+    let trace        = assembly.MainModule.Import traceMethod
+    let initialState = { Instrument = instRef; Random = Random(); Trace = trace }
+    let mainModuleTypes = assembly.MainModule.Types
+    mainModuleTypes |> Seq.iter (instrumentType initialState)
+    assembly.Write outputFileName
 
 

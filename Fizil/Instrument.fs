@@ -29,9 +29,11 @@ let project (project: Project, log: Logger) =
     log Standard "Starting instrumentation..."
     let files = systemUnderTestFiles project
     let instrument = filesToInstrument(files, project)
+    log Standard (sprintf "Instrumenting %s" project.Executable)
     let executableInputFilename = Path.Combine(project.Directories.SystemUnderTest, project.Executable)
     let executableOutputFilename = Path.Combine(project.Directories.Instrumented, project.Executable)
     let instrumentMethod = CilInstrument.instrumentExecutable(executableInputFilename, executableOutputFilename)
+    log Standard "Instrumenting dependencies..."
     instrument
         |> Set.remove project.Executable
         |> Set.iter (fun filename ->
@@ -39,7 +41,7 @@ let project (project: Project, log: Logger) =
             let outputFilename = Path.Combine(project.Directories.Instrumented, filename)
             log Verbose (sprintf "  Instrumenting %s" filename)
             CilInstrument.instrumentDependency(inputFilename, outputFilename, instrumentMethod))
-    log Standard "Copying dependencies..."
+    log Standard "Copying excluded dependencies..."
     let copy = 
         files
         |> (fun allFiles -> Set.difference allFiles instrument)

@@ -161,18 +161,30 @@ let instrumentExecutable (assemblyFilename: string, outputFileName: string) =
         let trace        = assembly.MainModule.Import traceMethod
         let initialState = { Instrument = instrument; Random = Random(); Trace = trace }
         let mainModuleTypes = assembly.MainModule.Types
+        assembly.MainModule.AssemblyReferences |> Seq.iter (fun reference ->
+            reference.PublicKeyToken <- null
+        )
         mainModuleTypes |> Seq.iter (instrumentType initialState)
         assembly.Write outputFileName
         instrument
 
 
+let removeStrongName (assemblyDefinition : AssemblyDefinition) =
+    let name = assemblyDefinition.Name;
+    name.HasPublicKey <- false;
+    name.PublicKey <- Array.empty;
+    assemblyDefinition.Modules |> Seq.iter (fun moduleDefinition ->
+        moduleDefinition.Attributes <- moduleDefinition.Attributes &&& ~~~ModuleAttributes.StrongNameSigned)
+
+
 let instrumentDependency (assemblyFilename: string, outputFileName: string, instrument: FieldReference) =
-    let assembly     = AssemblyDefinition.ReadAssembly assemblyFilename
+    let assembly = AssemblyDefinition.ReadAssembly(assemblyFilename)
+    removeStrongName(assembly)
     let instRef      = assembly.MainModule.Import instrument
     let trace        = assembly.MainModule.Import traceMethod
     let initialState = { Instrument = instRef; Random = Random(); Trace = trace }
     let mainModuleTypes = assembly.MainModule.Types
     mainModuleTypes |> Seq.iter (instrumentType initialState)
-    assembly.Write outputFileName
+    assembly.Write(outputFileName)
 
 

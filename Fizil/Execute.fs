@@ -11,6 +11,35 @@ open Project
 open TestCase
 
 [<NoComparison>]
+[<NoEquality>]
+type InputMethod = {
+    BeforeStart: Process -> byte[] -> unit
+    AfterStart:  Process -> byte[] -> unit
+}
+
+let onCommandLine : InputMethod = {
+    BeforeStart = fun (proc: Process) (data: byte[])  ->
+        proc.StartInfo.Arguments <- Convert.toString data
+    AfterStart = fun proc data -> ()
+}
+
+let onStandardInput : InputMethod = {
+    BeforeStart = fun proc data -> 
+        proc.StartInfo.RedirectStandardInput <- true
+    AfterStart = fun (proc: Process) (data: byte[])  ->
+        proc.StandardInput.Write (Convert.toString data)
+        proc.StandardInput.Close()
+}
+
+
+let private projectInputMethod (project: Project) =
+    match project.Execute.Input.ToLowerInvariant() with
+    | "oncommandline"   -> onCommandLine
+    | "onstandardinput" -> onStandardInput
+    | _                 -> failwithf "Unrecognized Execute -> Input value %s found in project file" project.Execute.Input
+
+
+[<NoComparison>]
 type private ExecutionState = {
     /// Actual shared memory value from previous test run.
     /// Compare current test run final value with this to determine if 
@@ -35,7 +64,7 @@ let private loadExampleFile (project: Project) (filename: string) : byte[] =
     else File.ReadAllBytes(filename)
 
 
-let loadExamples (project: Project) : TestCase list =
+let private loadExamples (project: Project) : TestCase list =
     Directory.EnumerateFiles(project.Directories.Examples)
         |> Seq.map (fun filename -> 
             { 
@@ -54,18 +83,22 @@ let private checkProperties (propertyCheckers: IPropertyChecker list) (testRun: 
     | _ -> []
 
 
-let private executeApplication (executablePath: string) (propertyCheckers: IPropertyChecker list) (testCase: TestCase) =
+let private executeApplication (inputMethod: InputMethod) (executablePath: string) (propertyCheckers: IPropertyChecker list) (testCase: TestCase) =
     use proc = new Process()
     proc.StartInfo.FileName               <- executablePath
-    proc.StartInfo.Arguments              <- Convert.toString testCase.Data
+    inputMethod.BeforeStart proc testCase.Data
     proc.StartInfo.UseShellExecute        <- false
     proc.StartInfo.RedirectStandardOutput <- true
     proc.StartInfo.RedirectStandardError  <- true
-    proc.Start() |> ignore
+    let output = new System.Text.StringBuilder()
+    let err = new System.Text.StringBuilder()
+    proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
+    proc.ErrorDataReceived.Add(fun args -> err.Append(args.Data) |> ignore)
 
-    // Synchronously read the standard output of the spawned process. 
-    let output = proc.StandardOutput.ReadToEnd()
-    let err    = proc.StandardError.ReadToEnd()
+    proc.Start() |> ignore
+    inputMethod.AfterStart proc testCase.Data
+    proc.BeginOutputReadLine()
+    proc.BeginErrorReadLine()
 
     proc.WaitForExit()
     let exitCode = proc.ExitCode
@@ -73,18 +106,18 @@ let private executeApplication (executablePath: string) (propertyCheckers: IProp
     let testRun = {
         Input    = testCase.Data
         ExitCode = exitCode
-        StdErr   = err
-        StdOut   = output
+        StdErr   = err.ToString()
+        StdOut   = output.ToString()
     }
     let propertyViolations = 
         checkProperties propertyCheckers testRun
         |> List.filter (fun propertyCheckResult -> not <| propertyCheckResult.Verified )
     proc.Close()
     {
-        StdErr             = err
-        StdOut             = output
-        ExitCode           = exitCode
-        Crashed            = exitCode = WinApi.ClrUnhandledExceptionCode
+        StdErr             = testRun.StdErr
+        StdOut             = testRun.StdOut
+        ExitCode           = testRun.ExitCode
+        Crashed            = testRun.ExitCode = WinApi.ClrUnhandledExceptionCode
         NewPathFound       = false
         PropertyViolations = propertyViolations
     }
@@ -118,10 +151,10 @@ let private hasPropertyViolations (result : Result) =
     not <| List.isEmpty result.PropertyViolations
 
 
-let private executeApplicationTestCase (log: Logger) (executablePath) (state: ExecutionState) (testCase: TestCase) =
+let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) (executablePath) (state: ExecutionState) (testCase: TestCase) =
     log Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
     use sharedMemory = SharedMemory.create()
-    let result = executeApplication executablePath (getPropertyCheckers()) testCase
+    let result = executeApplication inputMethod executablePath (getPropertyCheckers()) testCase
     let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
     let hashed = getHash state.Hash finalSharedMemory
     let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
@@ -143,14 +176,15 @@ let private executeApplicationTestCase (log: Logger) (executablePath) (state: Ex
 let private logResults (log: Logger) (results: ExecutionResult.Result list) =
     log Standard "Execution complete"
     let testRuns   = results |> List.length
-    let crashes    = results |> List.filter (fun result -> result.Crashed)      |> List.length
-    let paths      = results |> List.filter (fun result -> result.NewPathFound) |> List.length
-    let violations = results |> List.filter hasPropertyViolations               |> List.length
+    let crashes    = results |> List.filter (fun result -> result.Crashed)       |> List.length
+    let paths      = results |> List.filter (fun result -> result.NewPathFound)  |> List.length
+    let violations = results |> List.filter hasPropertyViolations                |> List.length
+    let nonzero    = results |> List.filter (fun result -> result.ExitCode <> 0) |> List.length
     log Standard (sprintf "  Total runs:                %i" testRuns)
     log Standard (sprintf "  Crashes:                   %i" crashes)
+    log Standard (sprintf "  Nonzero exit codes:        %i" nonzero)
     log Standard (sprintf "  Total paths:               %i" paths)
     log Standard (sprintf "  Total property violations: %i" violations)
-
 
 
 let allTests (log: Logger) (project: Project) =
@@ -159,9 +193,10 @@ let allTests (log: Logger) (project: Project) =
         Log.error (sprintf "No example files found in %s" project.Directories.Examples)
         ExitCodes.examplesNotFound
     | examples ->
-        let sutExe          = System.IO.Path.Combine(project.Directories.SystemUnderTest, project.Executable)
-        let instrumentedExe = System.IO.Path.Combine(project.Directories.Instrumented, project.Executable)
-        let executablePath        = if System.IO.File.Exists instrumentedExe then instrumentedExe else sutExe
+        let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
+        let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
+        let inputMethod     = project |> projectInputMethod
+        let executablePath  = if File.Exists instrumentedExe then instrumentedExe else sutExe
         initializeTestRun project
         log Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
         let testCases = examples |> Fuzz.all
@@ -173,6 +208,6 @@ let allTests (log: Logger) (project: Project) =
         }
         let finalState = 
             testCases
-                |> Seq.fold (executeApplicationTestCase log executablePath) initialState
+                |> Seq.fold (executeApplicationTestCase log inputMethod executablePath) initialState
         logResults log finalState.Results
         ExitCodes.success

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil", "Fizil\Fizil.fsproj", "{3102E28F-605F-467B-A861-F916BA175FE9}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -22,6 +22,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil.Instrumentation", "Fizil.Instrumentation\Fizil.Instrumentation.fsproj", "{5ABA511E-4E97-4DF9-902F-48EFA4090D92}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil.Properties", "Fizil.Properties\Fizil.Properties.fsproj", "{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "JsonNetTest", "JsonNetTest\JsonNetTest.fsproj", "{EA745DB3-E011-461B-BFBB-77FE0C48D718}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +47,10 @@ Global
 		{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

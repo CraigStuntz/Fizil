@@ -11,22 +11,19 @@ open System.Linq
 
 [<NoComparison>]
 type private InstrumentState = {
-    Instrument: FieldReference
     Trace:      MethodReference
     Random:     Random
 }
 
 
-let private traceMethod   = typeof<Instrument>.GetMethod(Instrument.TraceMethodName)
+let private traceMethod   = typeof<Instrument>.GetMethod(Fizil.Instrumentation.Instrument.TraceMethodName)
 
 
 let private insertTraceInstruction(ilProcessor: ILProcessor, before: Instruction, state: InstrumentState) =
     let compileTimeRandom = state.Random.Next(0, UInt16.MaxValue |> Convert.ToInt32)
-    let ldFld             = ilProcessor.Create(OpCodes.Ldsfld, state.Instrument)
     let ldArg             = ilProcessor.Create(OpCodes.Ldc_I4, compileTimeRandom)
-    let callTrace         = ilProcessor.Create(OpCodes.Callvirt, state.Trace)
-    ilProcessor.InsertBefore(before, ldFld)
-    ilProcessor.InsertAfter (ldFld, ldArg)
+    let callTrace         = ilProcessor.Create(OpCodes.Call, state.Trace)
+    ilProcessor.InsertBefore(before, ldArg)
     ilProcessor.InsertAfter (ldArg, callTrace)
 
 
@@ -113,42 +110,31 @@ let private instrumentFieldAttributes : FieldAttributes =
     ||| FieldAttributes.Public
 
 
-let private instrumentEntryPoint(assembly: AssemblyDefinition) : FieldReference =
+let private instrumentEntryPoint(assembly: AssemblyDefinition) =
     let instrumentTypeRef  = assembly.EntryPoint.Module.Import(typeof<Instrument>)
-    let instrumentFieldDef = FieldDefinition("<>f__instrument", instrumentFieldAttributes, instrumentTypeRef)
-    assembly.EntryPoint.DeclaringType.Fields.Add(instrumentFieldDef)
-    let instrumentVariable = VariableDefinition(instrumentTypeRef);
-    let body                 = assembly.EntryPoint.Body
-    body.Variables.Add(instrumentVariable)
-    body.InitLocals <- true
+    let body               = assembly.EntryPoint.Body
     body.SimplifyMacros()
     let ilProcessor       = body.GetILProcessor()
-    let instrumentCtorRef = assembly.EntryPoint.Module.Import(typeof<Instrument>.GetConstructor([||]))
-    let ldloc             = ilProcessor.Create(OpCodes.Ldloc, instrumentVariable)
-    let disposeMethodRef  = assembly.EntryPoint.Module.Import(typeof<System.IDisposable>.GetMethod("Dispose"))
-    let callDispose       = ilProcessor.Create(OpCodes.Callvirt, disposeMethodRef)
+    let closeMethodRef    = assembly.EntryPoint.Module.Import(typeof<Instrument>.GetMethod(Instrument.CloseMethodName))
+    let callClose         = ilProcessor.Create(OpCodes.Call, closeMethodRef)
     let existingFirstInst = body.Instructions.First()
     let newExitInsts      = convertRetsToLeaves(assembly.EntryPoint, ilProcessor)
     // before try
-    ilProcessor.InsertBefore(existingFirstInst, ilProcessor.Create(OpCodes.Newobj, instrumentCtorRef))
-    ilProcessor.InsertBefore(existingFirstInst, ilProcessor.Create(OpCodes.Dup))
-    ilProcessor.InsertBefore(existingFirstInst, ilProcessor.Create(OpCodes.Stsfld, instrumentFieldDef))
-    ilProcessor.InsertBefore(existingFirstInst, ilProcessor.Create(OpCodes.Stloc, instrumentVariable))
+    let openMethodRef    = assembly.EntryPoint.Module.Import(typeof<Instrument>.GetMethod(Instrument.OpenMethodName))
+    ilProcessor.InsertBefore(existingFirstInst, ilProcessor.Create(OpCodes.Call, openMethodRef))
     // try block here
     //    ... existing code
     // finally block
-    ilProcessor.InsertBefore(newExitInsts, ldloc)
-    ilProcessor.InsertAfter(ldloc, callDispose)
-    ilProcessor.InsertAfter(callDispose, ilProcessor.Create(OpCodes.Endfinally))
+    ilProcessor.InsertBefore(newExitInsts, callClose)
+    ilProcessor.InsertAfter(callClose, ilProcessor.Create(OpCodes.Endfinally))
     let finallyHandler    = ExceptionHandler(ExceptionHandlerType.Finally)
     finallyHandler.TryStart     <- existingFirstInst
-    finallyHandler.TryEnd       <- ldloc
-    finallyHandler.HandlerStart <- ldloc
+    finallyHandler.TryEnd       <- callClose
+    finallyHandler.HandlerStart <- callClose
     finallyHandler.HandlerEnd   <- newExitInsts
     body.ExceptionHandlers.Add finallyHandler
     // end finally
     body.OptimizeMacros()
-    instrumentFieldDef :> FieldReference
 
 
 let instrumentExecutable (assemblyFilename: string, outputFileName: string) =
@@ -159,7 +145,7 @@ let instrumentExecutable (assemblyFilename: string, outputFileName: string) =
     else 
         let instrument   = instrumentEntryPoint assembly
         let trace        = assembly.MainModule.Import traceMethod
-        let initialState = { Instrument = instrument; Random = Random(); Trace = trace }
+        let initialState = { Random = Random(); Trace = trace }
         let mainModuleTypes = assembly.MainModule.Types
         assembly.MainModule.AssemblyReferences |> Seq.iter (fun reference ->
             reference.PublicKeyToken <- null
@@ -175,14 +161,15 @@ let removeStrongName (assemblyDefinition : AssemblyDefinition) =
     name.PublicKey <- Array.empty;
     assemblyDefinition.Modules |> Seq.iter (fun moduleDefinition ->
         moduleDefinition.Attributes <- moduleDefinition.Attributes &&& ~~~ModuleAttributes.StrongNameSigned)
+    let aptca = assemblyDefinition.CustomAttributes.FirstOrDefault(fun attr -> attr.AttributeType.FullName = typeof<System.Security.AllowPartiallyTrustedCallersAttribute>.FullName)
+    assemblyDefinition.CustomAttributes.Remove aptca |> ignore
 
 
-let instrumentDependency (assemblyFilename: string, outputFileName: string, instrument: FieldReference) =
+let instrumentDependency (assemblyFilename: string, outputFileName: string) =
     let assembly = AssemblyDefinition.ReadAssembly(assemblyFilename)
     removeStrongName(assembly)
-    let instRef      = assembly.MainModule.Import instrument
     let trace        = assembly.MainModule.Import traceMethod
-    let initialState = { Instrument = instRef; Random = Random(); Trace = trace }
+    let initialState = { Random = Random(); Trace = trace }
     let mainModuleTypes = assembly.MainModule.Types
     mainModuleTypes |> Seq.iter (instrumentType initialState)
     assembly.Write(outputFileName)

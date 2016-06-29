@@ -38,7 +38,7 @@ let private makeDirectoriesRelativeTo (project: Project) (projectPathAndFilename
 
 let private defaultProject (projectDirectory: string) : Project =
     let project = Project()
-    project.Executable                  <- "TinyTest.exe"
+    project.Execute.Executable          <- "TinyTest.exe"
     project.Directories.SystemUnderTest <- "system-under-test"
     project.Directories.Instrumented    <- "instrumented"
     project.Directories.Examples        <- "examples"

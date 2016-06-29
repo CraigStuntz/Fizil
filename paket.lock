@@ -1,5 +1,6 @@
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
-    FSharp.Configuration (0.5.10)
+    FSharp.Configuration (0.5.12)
     Mono.Cecil (0.9.6.1)
+    Newtonsoft.Json (8.0.3)

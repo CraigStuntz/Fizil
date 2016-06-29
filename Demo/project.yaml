@@ -4,7 +4,9 @@
     Examples: examples
     Findings: findings
 
-Executable: TinyTest.exe
+Execute:
+    Executable: JsonNetTest.exe
+    Input: onStandardInput
 
 Instrument:
     Include:
@@ -12,7 +14,6 @@ Instrument:
         - "*.dll"
     Exclude:
         - Fizil.Properties.dll
-        - FSharp.Core.dll
         - Mono.Cecil.dll
         - Mono.Cecil.Rocks.dll
         - TinyTest.vshost.exe

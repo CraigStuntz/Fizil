@@ -14,7 +14,7 @@ let private filesToInstrument (systemUnderTestFiles: Set<string>, project: Proje
         |> Set.ofSeq
         |> Set.add fizilInstrumentAssemblyName
     systemUnderTestFiles
-        |> Set.add project.Executable
+        |> Set.add project.Execute.Executable
         |> (fun files -> Set.difference files excluded)
 
 
@@ -29,13 +29,13 @@ let project (project: Project, log: Logger) =
     log Standard "Starting instrumentation..."
     let files = systemUnderTestFiles project
     let instrument = filesToInstrument(files, project)
-    log Standard (sprintf "Instrumenting %s" project.Executable)
-    let executableInputFilename = Path.Combine(project.Directories.SystemUnderTest, project.Executable)
-    let executableOutputFilename = Path.Combine(project.Directories.Instrumented, project.Executable)
+    log Standard (sprintf "Instrumenting %s" project.Execute.Executable)
+    let executableInputFilename = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
+    let executableOutputFilename = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
     CilInstrument.instrumentExecutable(executableInputFilename, executableOutputFilename)
     log Standard "Instrumenting dependencies..."
     instrument
-        |> Set.remove project.Executable
+        |> Set.remove project.Execute.Executable
         |> Set.iter (fun filename ->
             let inputFilename = Path.Combine(project.Directories.SystemUnderTest, filename)
             let outputFilename = Path.Combine(project.Directories.Instrumented, filename)

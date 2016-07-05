@@ -47,6 +47,7 @@ type private ExecutionState = {
     Hash:          System.Security.Cryptography.HashAlgorithm
     ObservedPaths: HashSet<string>
     Results:       Result list
+    Status:        Display.Status
 }
 
 let initializeTestRun (project: Project) =
@@ -152,7 +153,7 @@ let private hasPropertyViolations (result : Result) =
 
 
 let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) (executablePath) (state: ExecutionState) (testCase: TestCase) =
-    log Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
+    log.ToFile Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
     use sharedMemory = SharedMemory.create()
     let result = executeApplication inputMethod executablePath (getPropertyCheckers()) testCase
     let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
@@ -160,31 +161,33 @@ let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) 
     let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
     let resultWithNewPaths = { result with NewPathFound = newPathFound }
     if (resultWithNewPaths.Crashed)
-    then log Standard "Process crashed!"
+    then log.ToFile Standard "Process crashed!"
     if (resultWithNewPaths.NewPathFound)
-    then log Verbose "New path found"
-    log Verbose (sprintf "StdOut: %s"    resultWithNewPaths.StdOut)
-    log Verbose (sprintf "StdErr: %s"    resultWithNewPaths.StdErr)
-    log Verbose (sprintf "Exit code: %i" resultWithNewPaths.ExitCode)
+    then log.ToFile Verbose "New path found"
+    log.ToFile Verbose (sprintf "StdOut: %s"    resultWithNewPaths.StdOut)
+    log.ToFile Verbose (sprintf "StdErr: %s"    resultWithNewPaths.StdErr)
+    log.ToFile Verbose (sprintf "Exit code: %i" resultWithNewPaths.ExitCode)
+    let newDisplayStatus = Display.update(state.Status, resultWithNewPaths)
     if (resultWithNewPaths |> hasPropertyViolations)
-    then log Verbose (resultWithNewPaths.PropertyViolations |> formatPropertyViolations)
+    then log.ToFile Verbose (resultWithNewPaths.PropertyViolations |> formatPropertyViolations)
     { state with
         Results = resultWithNewPaths :: state.Results
+        Status  = newDisplayStatus
     }
 
 
 let private logResults (log: Logger) (results: ExecutionResult.Result list) =
-    log Standard "Execution complete"
+    log.ToFile Standard "Execution complete"
     let testRuns   = results |> List.length
     let crashes    = results |> List.filter (fun result -> result.Crashed)       |> List.length
     let paths      = results |> List.filter (fun result -> result.NewPathFound)  |> List.length
     let violations = results |> List.filter hasPropertyViolations                |> List.length
     let nonzero    = results |> List.filter (fun result -> result.ExitCode <> 0) |> List.length
-    log Standard (sprintf "  Total runs:                %i" testRuns)
-    log Standard (sprintf "  Crashes:                   %i" crashes)
-    log Standard (sprintf "  Nonzero exit codes:        %i" nonzero)
-    log Standard (sprintf "  Total paths:               %i" paths)
-    log Standard (sprintf "  Total property violations: %i" violations)
+    log.ToFile Standard (sprintf "  Total runs:                %i" testRuns)
+    log.ToFile Standard (sprintf "  Crashes:                   %i" crashes)
+    log.ToFile Standard (sprintf "  Nonzero exit codes:        %i" nonzero)
+    log.ToFile Standard (sprintf "  Total paths:               %i" paths)
+    log.ToFile Standard (sprintf "  Total property violations: %i" violations)
 
 
 let allTests (log: Logger) (project: Project) =
@@ -198,13 +201,14 @@ let allTests (log: Logger) (project: Project) =
         let inputMethod     = project |> projectInputMethod
         let executablePath  = if File.Exists instrumentedExe then instrumentedExe else sutExe
         initializeTestRun project
-        log Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
+        log.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
         let testCases = examples |> Fuzz.all
         use md5 = System.Security.Cryptography.MD5.Create()
         let initialState = {
             Hash          = md5
             ObservedPaths = HashSet<string>()
             Results       = []
+            Status        = Display.initialState()
         }
         let finalState = 
             testCases

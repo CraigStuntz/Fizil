@@ -51,10 +51,10 @@ let private forceDirectory (log: Logger) (root: string) (directory: string) : un
     let directory = Path.Combine(root, directory)
     match Directory.Exists directory with
     | false ->
-        log Standard (sprintf "CREATE %s" directory)
+        log.ToFile Standard (sprintf "CREATE %s" directory)
         Directory.CreateDirectory(directory) |> ignore
     | true ->
-        log Standard (sprintf "USE %s" directory)
+        log.ToFile Standard (sprintf "USE %s" directory)
 
 
 let private projectFilename (path: string) : string =
@@ -82,10 +82,10 @@ let private loadProjectOrDefault (log: Logger) (path: string) : Project =
     let filename = projectFilename path
     match load filename with
     | Some project -> 
-        log Standard (sprintf "USE %s" filename)
+        log.ToFile Standard (sprintf "USE %s" filename)
         project
     | None         -> 
-        log Standard (sprintf "CREATE %s" filename)
+        log.ToFile Standard (sprintf "CREATE %s" filename)
         defaultProject path
 
 

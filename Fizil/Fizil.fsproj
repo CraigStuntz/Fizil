@@ -55,6 +55,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Convert.fs" />
+    <Compile Include="ExecutionResult.fs" />
     <Compile Include="Log.fs" />
     <Compile Include="WinApi.fs" />
     <Compile Include="TestCase.fs" />
@@ -65,8 +66,8 @@
     <Compile Include="CilInstrument.fs" />
     <Compile Include="Instrument.fs" />
     <Compile Include="ExitCodes.fs" />
-    <Compile Include="ExecutionResult.fs" />
     <Compile Include="TestProperty.fs" />
+    <Compile Include="Display.fs" />
     <Compile Include="Execute.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />

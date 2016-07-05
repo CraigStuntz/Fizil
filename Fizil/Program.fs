@@ -24,7 +24,7 @@ let main argv =
     try
         System.Console.BufferHeight <- int(System.Int16.MaxValue) - 1
         let arguments        = Arguments.parse argv
-        let log              = Log.create arguments.Verbosity
+        let log              = Log.create(None, arguments.Verbosity)
         let exitCode =
             match arguments.Operation with
             | Initialize -> 

@@ -26,22 +26,22 @@ let systemUnderTestFiles(project: Project) : Set<string> =
 
 
 let project (project: Project, log: Logger) =
-    log Standard "Starting instrumentation..."
+    log.ToFile Standard "Starting instrumentation..."
     let files = systemUnderTestFiles project
     let instrument = filesToInstrument(files, project)
-    log Standard (sprintf "Instrumenting %s" project.Execute.Executable)
+    log.ToFile Standard (sprintf "Instrumenting %s" project.Execute.Executable)
     let executableInputFilename = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
     let executableOutputFilename = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
     CilInstrument.instrumentExecutable(executableInputFilename, executableOutputFilename)
-    log Standard "Instrumenting dependencies..."
+    log.ToFile Standard "Instrumenting dependencies..."
     instrument
         |> Set.remove project.Execute.Executable
         |> Set.iter (fun filename ->
             let inputFilename = Path.Combine(project.Directories.SystemUnderTest, filename)
             let outputFilename = Path.Combine(project.Directories.Instrumented, filename)
-            log Verbose (sprintf "  Instrumenting %s" filename)
+            log.ToFile Verbose (sprintf "  Instrumenting %s" filename)
             CilInstrument.instrumentDependency(inputFilename, outputFilename))
-    log Standard "Copying excluded dependencies..."
+    log.ToFile Standard "Copying excluded dependencies..."
     let copy = 
         files
         |> (fun allFiles -> Set.difference allFiles instrument)
@@ -52,8 +52,8 @@ let project (project: Project, log: Logger) =
         |> List.filter (fun (existing, instrumented) -> File.Exists(existing))
         
     copy |> Seq.iter (fun (existing, instrumented) -> 
-        log Verbose (sprintf "  Copying %s" (Path.GetFileName existing))
+        log.ToFile Verbose (sprintf "  Copying %s" (Path.GetFileName existing))
         File.Copy(existing, instrumented, true))
-    log Standard "Instrumentation complete"
+    log.ToFile Standard "Instrumentation complete"
 
     

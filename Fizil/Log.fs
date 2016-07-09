@@ -26,15 +26,13 @@ let private shouldLog (argumentsVerbosity: Verbosity) (messageVerbosity: Verbosi
     | Quiet       -> messageVerbosity = Quiet
 
 
-let private log (textWriter: System.IO.StreamWriter option) (argumentsVerbosity: Verbosity) (messageVerbosity: Verbosity) (message: string) =
+let private log (textWriter: System.IO.TextWriter option) (argumentsVerbosity: Verbosity) (messageVerbosity: Verbosity) (message: string) =
     match textWriter, shouldLog argumentsVerbosity messageVerbosity with
     | Some writer, true -> writer.WriteLine (sprintf "%s" message)
     | _, _           -> ()
 
 
-let create (toStream: Stream option, argumentsVerbosity: Verbosity) : Logger =
-    let textWriter = 
-        toStream |> Option.bind (fun stream -> Some (new StreamWriter(stream)))
+let create (textWriter: TextWriter option, argumentsVerbosity: Verbosity) : Logger =
     { 
         ToFile = log textWriter argumentsVerbosity
     }

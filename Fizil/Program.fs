@@ -15,6 +15,7 @@ let private showHelp (options: Arguments) =
 let private waitIfDebugging() =
     if (System.Diagnostics.Debugger.IsAttached)
     then
+        System.Console.ForegroundColor <- System.ConsoleColor.White
         printfn "Press any key to exit" 
         System.Console.ReadKey() |> ignore
 
@@ -24,14 +25,15 @@ let main argv =
     try
         System.Console.BufferHeight <- int(System.Int16.MaxValue) - 1
         let arguments        = Arguments.parse argv
-        let log              = Log.create(None, arguments.Verbosity)
         let exitCode =
             match arguments.Operation with
             | Initialize -> 
+                let log              = Log.create(Some System.Console.Out, arguments.Verbosity)
                 let projectDirectory = System.IO.Path.GetDirectoryName arguments.ProjectFileName                
                 Project.initialize log projectDirectory
                 ExitCodes.success
             | Instrument -> 
+                let log              = Log.create(Some System.Console.Out, arguments.Verbosity)
                 match Project.load arguments.ProjectFileName with
                 | Some project -> 
                     Instrument.project(project, log)
@@ -40,6 +42,7 @@ let main argv =
                     Log.error (sprintf "Project file %s not found" arguments.ProjectFileName)
                     ExitCodes.projectFileNotFound
             | ExecuteTests -> 
+                let log              = Log.create(None, arguments.Verbosity)
                 match Project.load arguments.ProjectFileName with
                 | Some project -> 
                     Execute.allTests log project

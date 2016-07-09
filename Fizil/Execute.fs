@@ -44,10 +44,12 @@ type private ExecutionState = {
     /// Actual shared memory value from previous test run.
     /// Compare current test run final value with this to determine if 
     /// fuzzer found any new paths.
-    Hash:          System.Security.Cryptography.HashAlgorithm
-    ObservedPaths: HashSet<string>
-    Results:       Result list
-    Status:        Display.Status
+    Hash:           System.Security.Cryptography.HashAlgorithm
+    FindingName:    int
+    FindingsFolder: string
+    ObservedPaths:  HashSet<string>
+    Results:        Result list
+    Status:         Display.Status
 }
 
 let initializeTestRun (project: Project) =
@@ -66,11 +68,12 @@ let private loadExampleFile (project: Project) (filename: string) : byte[] =
 
 
 let private loadExamples (project: Project) : TestCase list =
-    Directory.EnumerateFiles(project.Directories.Examples)
+    Directory.EnumerateFiles(project.Directories.Examples, "*", SearchOption.AllDirectories)
         |> Seq.map (fun filename -> 
             { 
                 Data          = loadExampleFile project filename
-                FileExtension = Path.GetExtension(filename) 
+                FileExtension = Path.GetExtension(filename)
+                SourceFile    = Some filename
             } )
         |> List.ofSeq
 
@@ -152,7 +155,37 @@ let private hasPropertyViolations (result : Result) =
     not <| List.isEmpty result.PropertyViolations
 
 
-let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) (executablePath) (state: ExecutionState) (testCase: TestCase) =
+let private shouldRecordFinding (testCase: TestCase) (result: Result) =
+    result.Crashed && result.NewPathFound && testCase.SourceFile.IsNone
+
+
+let private findingsFolderName (project: Project) (state: ExecutionState) =
+    Path.Combine(project.Directories.Examples, state.FindingsFolder)
+
+
+let private forceFindingsDirectory (project: Project) (state: ExecutionState) : unit =
+    let directory = findingsFolderName project state
+    Directory.CreateDirectory(directory) |> ignore
+
+
+let private recordFinding (project: Project) (state: ExecutionState) (result: Result) (testCase: TestCase) =
+    forceFindingsDirectory project state
+    let filename = state.FindingName.ToString() + testCase.FileExtension
+    let fullPath = Path.Combine(findingsFolderName project state, filename)
+    File.WriteAllBytes(fullPath, testCase.Data)
+
+
+/// Record finding if needed. 
+/// Return name of next finding, in any case
+let private maybeRecordFinding (project: Project) (state: ExecutionState) (result: Result) (testCase: TestCase) =
+    if shouldRecordFinding testCase result 
+    then 
+        recordFinding project state result testCase
+        state.FindingName + 1
+    else state.FindingName
+
+
+let private executeApplicationTestCase (project: Project) (log: Logger) (inputMethod: InputMethod) (executablePath) (state: ExecutionState) (testCase: TestCase) =
     log.ToFile Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
     use sharedMemory = SharedMemory.create()
     let result = executeApplication inputMethod executablePath (getPropertyCheckers()) testCase
@@ -168,11 +201,13 @@ let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) 
     log.ToFile Verbose (sprintf "StdErr: %s"    resultWithNewPaths.StdErr)
     log.ToFile Verbose (sprintf "Exit code: %i" resultWithNewPaths.ExitCode)
     let newDisplayStatus = Display.update(state.Status, resultWithNewPaths)
-    if (resultWithNewPaths |> hasPropertyViolations)
+    if   (resultWithNewPaths |> hasPropertyViolations)
     then log.ToFile Verbose (resultWithNewPaths.PropertyViolations |> formatPropertyViolations)
+    let findingName = maybeRecordFinding project state resultWithNewPaths testCase
     { state with
-        Results = resultWithNewPaths :: state.Results
-        Status  = newDisplayStatus
+        FindingName = findingName
+        Results     = resultWithNewPaths :: state.Results
+        Status      = newDisplayStatus
     }
 
 
@@ -190,6 +225,12 @@ let private logResults (log: Logger) (results: ExecutionResult.Result list) =
     log.ToFile Standard (sprintf "  Total property violations: %i" violations)
 
 
+let rec private withUniqueFindingsFolder (project: Project) (initialState: ExecutionState) = 
+    if Directory.Exists (findingsFolderName project initialState)
+    then withUniqueFindingsFolder project { initialState with FindingsFolder = initialState.FindingsFolder + "_" }
+    else initialState
+
+
 let allTests (log: Logger) (project: Project) =
     match loadExamples project with
     | [] ->
@@ -202,16 +243,22 @@ let allTests (log: Logger) (project: Project) =
         let executablePath  = if File.Exists instrumentedExe then instrumentedExe else sutExe
         initializeTestRun project
         log.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
-        let testCases = examples |> Fuzz.all
-        use md5 = System.Security.Cryptography.MD5.Create()
-        let initialState = {
-            Hash          = md5
-            ObservedPaths = HashSet<string>()
-            Results       = []
-            Status        = Display.initialState()
-        }
+        let testCases      = examples |> Fuzz.all
+        use md5            = System.Security.Cryptography.MD5.Create()
+        let localNow       = System.DateTime.Now
+        let findingsFolder = "findings_" + localNow.ToString("yyyy-MM-dd_HH-mm-ss")
+        let initialState = 
+            {
+                Hash           = md5
+                ObservedPaths  = HashSet<string>()
+                FindingName    = 0
+                FindingsFolder = findingsFolder
+                Results        = []
+                Status         = Display.initialState()
+            } 
+            |> withUniqueFindingsFolder project
         let finalState = 
             testCases
-                |> Seq.fold (executeApplicationTestCase log inputMethod executablePath) initialState
+                |> Seq.fold (executeApplicationTestCase project log inputMethod executablePath) initialState
         logResults log finalState.Results
         ExitCodes.success

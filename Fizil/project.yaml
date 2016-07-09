@@ -2,7 +2,6 @@
     SystemUnderTest: system-under-test
     Instrumented: instrumented
     Examples: examples
-    Findings: findings
 
 Execute:
     Executable: JsonNetTest.exe

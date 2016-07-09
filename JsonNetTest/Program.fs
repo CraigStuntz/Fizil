@@ -17,7 +17,8 @@ let readAllFromStdIn() : string =
 let parseJson (stdin: string) : Result<Dictionary<System.String, obj>> =
     try JsonConvert.DeserializeObject<Dictionary<System.String, obj>>(stdin) |> Success
     with 
-    | :? JsonReaderException as jre -> jre.Message |> Error
+    | :? JsonReaderException        as jre -> jre.Message |> Error
+    | :? JsonSerializationException as jse -> jse.Message |> Error
 
 let stringify (ob: obj) : string =
     JsonConvert.SerializeObject(ob)

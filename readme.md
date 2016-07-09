@@ -28,11 +28,13 @@ In the meantime, use [AFL](http://lcamtuf.coredump.cx/afl/) if you want to do re
 3. Build (in VS or from the command line just type `msbuild` if it's in your path)
 4. Init demo project (only needed first time). Use `--init`. Two ways you can do this:
   1. In VS, right click Fizil project, Properties, Debug, add `--init` to Command line arguments
-  2. From command line, `Fizil\bin\Debug\Fizil.exe --init`
-5. Run from VS or command line.
+  2. From command line, change to project folder and then `Fizil\bin\Debug\Fizil.exe --init`. Copy appropriate files into `system-under-test` and `examples` folders
+5. Instrument: 
+  1. In VS, right click Fizil project, Properties, Debug, add `--instrument` to Command line arguments
+  2. From command line, change to project folder and then `Fizil\bin\Debug\Fizil.exe --instrument`
+6. Run from VS or command line.
   1. In VS, press F5
-  2. From command line, `Fizil\bin\Debug\Fizil.exe`
-Instrumentation is manual now (see `TinyTest\Program.cs`). This is terrible and will change soon!
+  2. From command line, change to project folder and then`Fizil\bin\Debug\Fizil.exe`
 
 ## Gratitude
 

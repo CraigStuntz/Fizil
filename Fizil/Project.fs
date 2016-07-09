@@ -22,7 +22,6 @@ let private makeDirectoriesAbsolute (project: Project) (projectPathAndFilename: 
     project.Directories.SystemUnderTest <- project.Directories.SystemUnderTest |> toAbsolutePath
     project.Directories.Instrumented    <- project.Directories.Instrumented    |> toAbsolutePath
     project.Directories.Examples        <- project.Directories.Examples        |> toAbsolutePath
-    project.Directories.Findings        <- project.Directories.Findings        |> toAbsolutePath
     project
 
 
@@ -32,7 +31,6 @@ let private makeDirectoriesRelativeTo (project: Project) (projectPathAndFilename
     project.Directories.SystemUnderTest <- project.Directories.SystemUnderTest |> pathRelativeToProject
     project.Directories.Instrumented    <- project.Directories.Instrumented    |> pathRelativeToProject
     project.Directories.Examples        <- project.Directories.Examples        |> pathRelativeToProject
-    project.Directories.Findings        <- project.Directories.Findings        |> pathRelativeToProject
     project
 
 
@@ -42,7 +40,6 @@ let private defaultProject (projectDirectory: string) : Project =
     project.Directories.SystemUnderTest <- "system-under-test"
     project.Directories.Instrumented    <- "instrumented"
     project.Directories.Examples        <- "examples"
-    project.Directories.Findings        <- "findings"
     project.TextFileExtensions          <- System.Collections.Generic.List([ ".txt" ])
     makeDirectoriesAbsolute project projectDirectory
 
@@ -95,5 +92,4 @@ let initialize (log: Logger) (projectDirectory: string) : unit =
     force project.Directories.SystemUnderTest
     force project.Directories.Instrumented
     force project.Directories.Examples
-    force project.Directories.Findings
     project |> save <| (projectFilename projectDirectory)

@@ -4,7 +4,7 @@
 type FuzzStrategy = byte[] -> seq<byte[]>
 
 
-let private useOriginalExample : FuzzStrategy = 
+let useOriginalExample : FuzzStrategy = 
     Seq.singleton
 
 
@@ -12,7 +12,7 @@ let private flip (byte: byte) (bitIndex: int) =
     (byte ^^^ (1uy <<< bitIndex))
      
 
-let private bitFlip : FuzzStrategy = 
+let bitFlip : FuzzStrategy = 
     fun (bytes: byte[]) ->
         seq {
             for byte = 0 to bytes.Length - 1 do

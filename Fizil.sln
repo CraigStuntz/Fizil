@@ -25,6 +25,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil.Properties", "Fizil.P
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "JsonNetTest", "JsonNetTest\JsonNetTest.fsproj", "{EA745DB3-E011-461B-BFBB-77FE0C48D718}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil.Tests", "Fizil.Tests\Fizil.Tests.fsproj", "{A907477C-1185-42B0-821B-8619D035A71C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,10 @@ Global
 		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A907477C-1185-42B0-821B-8619D035A71C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A907477C-1185-42B0-821B-8619D035A71C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A907477C-1185-42B0-821B-8619D035A71C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A907477C-1185-42B0-821B-8619D035A71C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

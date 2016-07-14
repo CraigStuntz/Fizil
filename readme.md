@@ -7,7 +7,7 @@ In the meantime, use [AFL](http://lcamtuf.coredump.cx/afl/) if you want to do re
 
 | Feature                                | Fizil           | AFL                |
 |----------------------------------------|-----------------|--------------------|
-| Runs on Windows                        | Yep!            | Nope               |
+| Runs on Windows                        | Yep!            | No, but [there's a fork](https://github.com/ivanfratric/winafl) |
 | Runs on Unix                           | Probably not    | Yep!               |
 | Fast                                   | No              | Yep!               |
 | Instrumentation guided                 | Soon?           | Yep!               |

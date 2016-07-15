@@ -49,7 +49,7 @@ let project (project: Project, log: Logger) =
         |> List.map    (fun filename -> 
             Path.Combine(project.Directories.SystemUnderTest, filename),
             Path.Combine(project.Directories.Instrumented, filename))
-        |> List.filter (fun (existing, instrumented) -> File.Exists(existing))
+        |> List.filter (fun (existing, _instrumented) -> File.Exists(existing))
         
     copy |> Seq.iter (fun (existing, instrumented) -> 
         log.ToFile Verbose (sprintf "  Copying %s" (Path.GetFileName existing))

@@ -8,8 +8,8 @@ let private reportVersion() =
     printfn "%A" (System.Reflection.Assembly.GetExecutingAssembly().GetName().Version)
 
 
-let private showHelp (options: Arguments) =
-    printfn "%s" (Arguments.helpString options)
+let private showHelp () =
+    printfn "%s" (Arguments.helpString())
 
 
 let private waitIfDebugging() =
@@ -53,7 +53,7 @@ let main argv =
                 -> reportVersion()
                    ExitCodes.success
             | ShowHelp      
-                -> showHelp arguments
+                -> showHelp()
                    ExitCodes.success
         waitIfDebugging()
         exitCode

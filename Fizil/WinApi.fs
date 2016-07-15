@@ -18,7 +18,7 @@ type ErrorModes =
 
 
 [<DllImport("kernel32.dll")>]
-extern ErrorModes SetErrorMode(ErrorModes uMode);
+extern ErrorModes SetErrorMode(ErrorModes _uMode);
 
 
 let disableCrashReporting() =
@@ -37,11 +37,11 @@ let private MAX_PATH : int = 260
 
 [<DllImport("shlwapi.dll", CharSet = CharSet.Auto)>]
 extern bool PathRelativePathTo(
-    StringBuilder pszPath, 
-    string        pszFrom, 
-    int           dwAttrFrom, 
-    string        pszTo, 
-    int           dwAttrTo);
+    StringBuilder _pszPath, 
+    string        _pszFrom, 
+    int           _dwAttrFrom, 
+    string        _pszTo, 
+    int           _dwAttrTo);
 
 
 let getRelativePath (fromPath: string) (toPath: string) : string =

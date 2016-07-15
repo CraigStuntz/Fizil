@@ -65,7 +65,7 @@ let private writeParagraph(title: string) (leftColumnWith: int) (formattedValue:
     | Some value -> 
         Console.WriteLine ((title.PadLeft leftColumnWith) + " : ")
         Console.ForegroundColor <- ConsoleColor.White
-        Console.WriteLine formattedValue
+        Console.WriteLine value
     | None -> Console.WriteLine ((title.PadLeft leftColumnWith) + " : <none>")
 
 

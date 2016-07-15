@@ -26,7 +26,7 @@ let defaultArguments =
     }
 
 
-let helpString (arguments: Arguments) = 
+let helpString () = 
     """Usage: Fizil [OPTION] [path/to/project.yaml]
   --help       Display this help message
   --init       Create working directories

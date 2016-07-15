@@ -20,11 +20,11 @@ type InputMethod = {
 let onCommandLine : InputMethod = {
     BeforeStart = fun (proc: Process) (data: byte[])  ->
         proc.StartInfo.Arguments <- Convert.toString data
-    AfterStart = fun proc data -> ()
+    AfterStart = fun _proc _data -> ()
 }
 
 let onStandardInput : InputMethod = {
-    BeforeStart = fun proc data -> 
+    BeforeStart = fun proc _data -> 
         proc.StartInfo.RedirectStandardInput <- true
     AfterStart = fun (proc: Process) (data: byte[])  ->
         proc.StandardInput.Write (Convert.toString data)
@@ -168,7 +168,7 @@ let private forceFindingsDirectory (project: Project) (state: ExecutionState) : 
     Directory.CreateDirectory(directory) |> ignore
 
 
-let private recordFinding (project: Project) (state: ExecutionState) (result: Result) (testCase: TestCase) =
+let private recordFinding (project: Project) (state: ExecutionState) (testCase: TestCase) =
     forceFindingsDirectory project state
     let filename = state.FindingName.ToString() + testCase.FileExtension
     let fullPath = Path.Combine(findingsFolderName project state, filename)
@@ -180,7 +180,7 @@ let private recordFinding (project: Project) (state: ExecutionState) (result: Re
 let private maybeRecordFinding (project: Project) (state: ExecutionState) (result: Result) (testCase: TestCase) =
     if shouldRecordFinding testCase result 
     then 
-        recordFinding project state result testCase
+        recordFinding project state testCase
         state.FindingName + 1
     else state.FindingName
 

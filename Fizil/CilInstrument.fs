@@ -72,7 +72,7 @@ let private rewriteRetAndFixup(ret: Instruction, target: Instruction, ilProcesso
     | ReturnsVoid -> ()
     
     // Any instruction which jumped to the old ret should now jump to the new leave
-    originalInstructions |> Seq.iteri (fun index instruction -> 
+    originalInstructions |> Seq.iter (fun instruction -> 
         if ret.Equals(instruction.Operand)
         then ilProcessor.Replace(instruction, Instruction.Create(instruction.OpCode, leave))
     )
@@ -85,7 +85,7 @@ let private convertRetsToLeaves(methodDefinition: MethodDefinition, ilProcessor:
     ilProcessor.Append lastRet
     if methodDefinition.ReturnType = methodDefinition.Module.TypeSystem.Void 
     then
-        originalInstructions |> Seq.iteri (fun index instruction ->
+        originalInstructions |> Seq.iter (fun instruction ->
                 if instruction.OpCode = OpCodes.Ret && (instruction <> lastRet)
                 then rewriteRetAndFixup(instruction, lastRet, ilProcessor, originalInstructions, ReturnsVoid)
             )
@@ -96,7 +96,7 @@ let private convertRetsToLeaves(methodDefinition: MethodDefinition, ilProcessor:
         let lastLd = Instruction.Create(OpCodes.Ldloc, returnVariable)
         ilProcessor.InsertBefore(lastRet, lastLd)
         // will be mutating original collection, so make a copy to iterate
-        originalInstructions |> Seq.iteri (fun index instruction ->
+        originalInstructions |> Seq.iter (fun instruction ->
                 if (instruction.OpCode = OpCodes.Ret && instruction <> lastRet)
                 then 
                     rewriteRetAndFixup(instruction, lastLd, ilProcessor, originalInstructions, ReturnsNonVoid returnVariable)
@@ -111,7 +111,6 @@ let private instrumentFieldAttributes : FieldAttributes =
 
 
 let private instrumentEntryPoint(assembly: AssemblyDefinition) =
-    let instrumentTypeRef  = assembly.EntryPoint.Module.Import(typeof<Instrument>)
     let body               = assembly.EntryPoint.Body
     body.SimplifyMacros()
     let ilProcessor       = body.GetILProcessor()

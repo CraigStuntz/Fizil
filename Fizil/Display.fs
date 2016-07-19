@@ -21,7 +21,7 @@ type Status =
             let executions = this.Executions + 1UL
             let executionsPerSecond = 
                 if (elapsedTime.TotalMilliseconds > 0.0) 
-                then Convert.ToDouble(elapsedTime.TotalMilliseconds) / Convert.ToDouble(executions) / 1000.0
+                then Convert.ToDouble(executions) / Convert.ToDouble(elapsedTime.TotalMilliseconds) * 1000.0
                 else 0.0
             {
                 StartTime           = this.StartTime

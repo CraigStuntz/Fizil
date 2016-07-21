@@ -11,16 +11,28 @@ module FuzzStrategiesTest =
         Assert.That(fuzzed |> Seq.length, Is.EqualTo 1)
         Assert.That(fuzzed |> Seq.head |> Seq.head, Is.EqualTo (input |> Array.head))
 
+
     [<Test>]
-    let ``bitFlip returns one example for each bit``() = 
-        let input = [| 0uy |]
-        let fuzzed = FuzzStrategies.bitFlip input
-        Assert.That(fuzzed |> Seq.length, Is.EqualTo 8)
-        Assert.That(fuzzed, Contains.Item([| 1uy |]))
-        Assert.That(fuzzed, Contains.Item([| 2uy |]))
-        Assert.That(fuzzed, Contains.Item([| 4uy |]))
-        Assert.That(fuzzed, Contains.Item([| 8uy |]))
-        Assert.That(fuzzed, Contains.Item([| 16uy |]))
-        Assert.That(fuzzed, Contains.Item([| 32uy |]))
-        Assert.That(fuzzed, Contains.Item([| 64uy |]))
-        Assert.That(fuzzed, Contains.Item([| 128uy |]))
+    let ``bitFlip1 flips l bit``() = 
+        let input = [| 0uy; 255uy |]
+        let expected = [ 
+            [| 1uy;   255uy |]
+            [| 2uy;   255uy |]
+            [| 4uy;   255uy |]
+            [| 8uy;   255uy |]
+            [| 16uy;  255uy |]
+            [| 32uy;  255uy |]
+            [| 64uy;  255uy |]
+            [| 128uy; 255uy |] 
+            [| 0uy;   254uy |]
+            [| 0uy;   253uy |]
+            [| 0uy;   251uy |]
+            [| 0uy;   247uy |]
+            [| 0uy;   239uy |]
+            [| 0uy;   223uy |]
+            [| 0uy;   191uy |]
+            [| 0uy;   127uy |] 
+        ]
+        let fuzzed = FuzzStrategies.bitFlip 1 input
+        let actual = List.ofSeq fuzzed
+        Assert.That(actual, Is.EqualTo expected)

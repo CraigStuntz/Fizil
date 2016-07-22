@@ -8,8 +8,8 @@ module FuzzStrategiesTest =
     let ``useOriginalExample returns originals``() = 
         let input = [| 0uy |]
         let fuzzed = FuzzStrategies.useOriginalExample input
-        Assert.That(fuzzed |> Seq.length, Is.EqualTo 1)
-        Assert.That(fuzzed |> Seq.head |> Seq.head, Is.EqualTo (input |> Array.head))
+        Assert.That(fuzzed.TestCases |> Seq.length, Is.EqualTo 1)
+        Assert.That(fuzzed.TestCases |> Seq.head |> Seq.head, Is.EqualTo (input |> Array.head))
 
 
     [<Test>]
@@ -34,5 +34,5 @@ module FuzzStrategiesTest =
             [| 0b00000000uy; 0b01111111uy |] 
         ]
         let fuzzed = FuzzStrategies.bitFlip 1 input
-        let actual = List.ofSeq fuzzed
+        let actual = List.ofSeq fuzzed.TestCases
         Assert.That(actual, Is.EqualTo expected)

@@ -2,12 +2,21 @@
 
 open System.Collections
 
+[<NoComparison>]
+type Stage = {
+    Name:      string
+    TestCases: seq<byte[]>
+}
 /// Takes a data example uses it as a seed to generate 0 or more new test cases
-type FuzzStrategy = byte[] -> seq<byte[]>
+type FuzzStrategy = byte[] -> Stage
 
 
 let useOriginalExample : FuzzStrategy = 
-    Seq.singleton
+    fun bytes -> 
+        {
+            Name =      "calibration"
+            TestCases = Seq.singleton bytes 
+        }
 
 
 let private bitMasks(bitIndex: int, bitsToFlip: int) =
@@ -43,7 +52,7 @@ let private bitMasks(bitIndex: int, bitsToFlip: int) =
 let bitFlip (flipBits: int) : FuzzStrategy = 
     fun (bytes: byte[]) ->
         let totalBits = bytes.Length * 8
-        seq {
+        let testCases = seq {
             for bit = 0 to totalBits - 1 do
                 let newBytes = Array.copy bytes
                 let firstByte = bit / 8
@@ -56,6 +65,10 @@ let bitFlip (flipBits: int) : FuzzStrategy =
                     let newSecondByte = bytes.[secondByte] ^^^ secondByteMask
                     newBytes.[secondByte] <- newSecondByte
                 yield newBytes
+        }
+        {
+            Name = sprintf "bitflip %d/1" flipBits
+            TestCases = testCases
         }
 
 

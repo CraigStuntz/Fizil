@@ -8,6 +8,7 @@ type Status =
     {
         StartTime:           DateTimeOffset
         ElapsedTime:         TimeSpan
+        StageName:           string
         Executions:          uint64
         Crashes:             uint64
         NonZeroExitCodes:    uint64
@@ -16,7 +17,7 @@ type Status =
         LastCrash:           string option
     }
     with 
-        member this.AddExecution(result: Result) =
+        member this.AddExecution(stageName: string, result: Result) =
             let elapsedTime = DateTimeOffset.UtcNow - this.StartTime
             let executions = this.Executions + 1UL
             let executionsPerSecond = 
@@ -26,6 +27,7 @@ type Status =
             {
                 StartTime           = this.StartTime
                 ElapsedTime         = elapsedTime
+                StageName           = stageName
                 Executions          = executions
                 Crashes             = this.Crashes          + (if result.Crashed       then 1UL else 0UL)
                 NonZeroExitCodes    = this.NonZeroExitCodes + (if result.ExitCode <> 0 then 1UL else 0UL)
@@ -43,6 +45,7 @@ let initialState() =
     {
         StartTime           = DateTimeOffset.UtcNow
         ElapsedTime         = TimeSpan.Zero
+        StageName           = "initializing"
         Executions          = 0UL
         Crashes             = 0UL
         NonZeroExitCodes    = 0UL
@@ -79,6 +82,7 @@ let toConsole(status: Status) =
     Console.SetCursorPosition(0, 0)
     let leftColumnWidth = 19
     writeValue "Elapsed time"       leftColumnWidth (status.ElapsedTime |> formatTimeSpan)
+    writeValue "Now trying"         leftColumnWidth (status.StageName)
     writeValue "Executions"         leftColumnWidth (status.Executions.ToString(CultureInfo.CurrentUICulture))
     writeValue "Crashes"            leftColumnWidth (status.Crashes.ToString(CultureInfo.CurrentUICulture))
     writeValue "Nonzero exit codes" leftColumnWidth (status.NonZeroExitCodes.ToString(CultureInfo.CurrentUICulture))
@@ -88,7 +92,7 @@ let toConsole(status: Status) =
     status
 
 
-let update(previousStatus: Status, currentResult: Result) : Status =
-    previousStatus.AddExecution(currentResult) 
+let update(stageName: string, previousStatus: Status, currentResult: Result) : Status =
+    previousStatus.AddExecution(stageName, currentResult) 
         |> toConsole
 

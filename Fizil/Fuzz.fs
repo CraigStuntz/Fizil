@@ -5,9 +5,10 @@ open TestCase
 
 let private inputs (example: TestCase) : seq<TestCase> = 
     seq {
-        for fuzzStrategy in FuzzStrategies.all do
-            for input in fuzzStrategy(example.Data) do
-                yield { example with Data = input; SourceFile = None }
+        for strategy in FuzzStrategies.all do
+            let stage = strategy(example.Data)
+            for input in stage.TestCases do
+                yield { example with Data = input; SourceFile = None; Stage = stage.Name }
     }
 
 

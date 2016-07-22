@@ -74,6 +74,7 @@ let private loadExamples (project: Project) : TestCase list =
                 Data          = loadExampleFile project filename
                 FileExtension = Path.GetExtension(filename)
                 SourceFile    = Some filename
+                Stage         = "calibration"
             } )
         |> List.ofSeq
 
@@ -200,7 +201,7 @@ let private executeApplicationTestCase (project: Project) (log: Logger) (inputMe
     log.ToFile Verbose (sprintf "StdOut: %s"    resultWithNewPaths.StdOut)
     log.ToFile Verbose (sprintf "StdErr: %s"    resultWithNewPaths.StdErr)
     log.ToFile Verbose (sprintf "Exit code: %i" resultWithNewPaths.ExitCode)
-    let newDisplayStatus = Display.update(state.Status, resultWithNewPaths)
+    let newDisplayStatus = Display.update(testCase.Stage, state.Status, resultWithNewPaths)
     if   (resultWithNewPaths |> hasPropertyViolations)
     then log.ToFile Verbose (resultWithNewPaths.PropertyViolations |> formatPropertyViolations)
     let findingName = maybeRecordFinding project state resultWithNewPaths testCase

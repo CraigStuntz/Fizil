@@ -7,4 +7,5 @@ type TestCase = {
     /// SourceFile will be Some filename on an example file,
     /// None on a generated test case
     SourceFile:    string option
+    Stage:         string
 }

@@ -55,9 +55,9 @@ let initialState() =
     }
 
 
-let private writeValue(title: string) (leftColumnWith: int) (formattedValue: string) =
+let private writeValue(title: string) (titleWith: int) (formattedValue: string) =
     Console.ForegroundColor <- ConsoleColor.Gray
-    Console.Write ((title.PadLeft leftColumnWith) + " : ")
+    Console.Write ((title.PadLeft titleWith) + " : ")
     Console.ForegroundColor <- ConsoleColor.White
     Console.WriteLine formattedValue
 
@@ -80,15 +80,15 @@ let toConsole(status: Status) =
     Console.Clear()
     Console.BackgroundColor <- ConsoleColor.Black
     Console.SetCursorPosition(0, 0)
-    let leftColumnWidth = 19
-    writeValue "Elapsed time"       leftColumnWidth (status.ElapsedTime |> formatTimeSpan)
-    writeValue "Now trying"         leftColumnWidth (status.StageName)
-    writeValue "Executions"         leftColumnWidth (status.Executions.ToString(CultureInfo.CurrentUICulture))
-    writeValue "Crashes"            leftColumnWidth (status.Crashes.ToString(CultureInfo.CurrentUICulture))
-    writeValue "Nonzero exit codes" leftColumnWidth (status.NonZeroExitCodes.ToString(CultureInfo.CurrentUICulture))
-    writeValue "Paths"              leftColumnWidth (status.Paths.ToString(CultureInfo.CurrentUICulture))
-    writeValue "Executions/second"  leftColumnWidth (status.ExecutionsPerSecond.ToString("G4", CultureInfo.CurrentUICulture))
-    writeParagraph "Last crash"     leftColumnWidth status.LastCrash
+    let titleWidth = 19
+    writeValue "Elapsed time"       titleWidth (status.ElapsedTime |> formatTimeSpan)
+    writeValue "Stage"              titleWidth (status.StageName)
+    writeValue "Executions"         titleWidth (status.Executions.ToString(CultureInfo.CurrentUICulture))
+    writeValue "Crashes"            titleWidth (status.Crashes.ToString(CultureInfo.CurrentUICulture))
+    writeValue "Nonzero exit codes" titleWidth (status.NonZeroExitCodes.ToString(CultureInfo.CurrentUICulture))
+    writeValue "Paths"              titleWidth (status.Paths.ToString(CultureInfo.CurrentUICulture))
+    writeValue "Executions/second"  titleWidth (status.ExecutionsPerSecond.ToString("G4", CultureInfo.CurrentUICulture))
+    writeParagraph "Last crash"     titleWidth status.LastCrash
     status
 
 

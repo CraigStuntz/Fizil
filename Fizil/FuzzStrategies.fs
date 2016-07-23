@@ -53,7 +53,7 @@ let bitFlip (flipBits: int) : FuzzStrategy =
     fun (bytes: byte[]) ->
         let totalBits = bytes.Length * 8
         let testCases = seq {
-            for bit = 0 to totalBits - 1 do
+            for bit = 0 to totalBits - flipBits do
                 let newBytes = Array.copy bytes
                 let firstByte = bit / 8
                 let firstByteMask, secondByteMask = bitMasks(bit, flipBits)
@@ -72,6 +72,24 @@ let bitFlip (flipBits: int) : FuzzStrategy =
         }
 
 
+/// Rolling byte flip with 1 byte stepover
+let byteFlip (flipBytes: int) : FuzzStrategy = 
+    fun (bytes: byte[]) ->
+        let testCases = seq {
+            for firstFlip = 0 to bytes.Length - 1 do
+                let newBytes = Array.copy bytes
+                let lastFlip = System.Math.Min(firstFlip + flipBytes, bytes.Length) - 1
+                for flipByte = firstFlip to lastFlip do 
+                    let newByte = bytes.[flipByte] ^^^ 0b11111111uy
+                    newBytes.[flipByte] <- newByte
+                yield newBytes
+        }
+        {
+            Name = sprintf "byteflip %d/1" flipBytes
+            TestCases = testCases
+        }
+
+
 /// An ordered list of functions to use when starting with a single piece of 
 /// example data and producing new examples to try
 let all = [ 
@@ -79,6 +97,9 @@ let all = [
     bitFlip 1
     bitFlip 2
     bitFlip 4
+    byteFlip 1
+    byteFlip 2
+    byteFlip 4
 ]
                 
 

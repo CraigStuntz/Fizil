@@ -36,3 +36,16 @@ module FuzzStrategiesTest =
         let fuzzed = FuzzStrategies.bitFlip 1 input
         let actual = List.ofSeq fuzzed.TestCases
         Assert.That(actual, Is.EqualTo expected)
+
+
+    [<Test>]
+    let ``byteFlip1 flips l byte``() = 
+        let input = [| 0b00000000uy; 0b11111111uy; 0b00000000uy |]
+        let expected = [ 
+            [| 0b11111111uy; 0b11111111uy; 0b00000000uy |]
+            [| 0b00000000uy; 0b00000000uy; 0b00000000uy |]
+            [| 0b00000000uy; 0b11111111uy; 0b11111111uy |]
+        ]
+        let fuzzed = FuzzStrategies.byteFlip 1 input
+        let actual = List.ofSeq fuzzed.TestCases
+        Assert.That(actual, Is.EqualTo expected)

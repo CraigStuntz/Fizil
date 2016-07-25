@@ -27,7 +27,7 @@ let onStandardInput : InputMethod = {
     BeforeStart = fun proc _data -> 
         proc.StartInfo.RedirectStandardInput <- true
     AfterStart = fun (proc: Process) (data: byte[])  ->
-        proc.StandardInput.Write (Convert.toString data)
+        proc.StandardInput.BaseStream.Write(data, 0, data.Length)
         proc.StandardInput.Close()
 }
 

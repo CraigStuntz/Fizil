@@ -8,7 +8,7 @@ let toBytes(str: string) : byte[] =
 
 
 let toString(bytes: byte[]) : string =
-    let chars: char[] = Array.create (bytes.Length / sizeof<char>) System.Char.MinValue
+    let numChars = (bytes.Length / sizeof<char>) + (bytes.Length % sizeof<char>)
+    let chars: char[] = Array.create numChars System.Char.MinValue
     System.Buffer.BlockCopy(bytes, 0, chars, 0, bytes.Length)
     System.String(chars)
-

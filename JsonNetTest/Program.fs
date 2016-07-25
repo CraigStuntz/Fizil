@@ -19,6 +19,11 @@ let parseJson (stdin: string) : Result<Dictionary<System.String, obj>> =
     with 
     | :? JsonReaderException        as jre -> jre.Message |> Error
     | :? JsonSerializationException as jse -> jse.Message |> Error
+    | :? System.FormatException     as jse -> 
+        if jse.Message.StartsWith("Invalid hex character") // hard coded: https://github.com/JamesNK/Newtonsoft.Json/blob/6d7c94e69fa2f52b91fb22972321cb9b51b9abed/Src/Newtonsoft.Json/Utilities/ConvertUtils.cs#L984
+        then jse.Message |> Error
+        else reraise()
+
 
 let stringify (ob: obj) : string =
     JsonConvert.SerializeObject(ob)

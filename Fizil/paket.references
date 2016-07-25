@@ -1,2 +1,3 @@
 ﻿FSharp.Configuration
 Mono.Cecil
+FSharp.Collections.ParallelSeq

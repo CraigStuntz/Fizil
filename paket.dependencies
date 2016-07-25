@@ -4,3 +4,4 @@ nuget FSharp.Configuration
 nuget Mono.Cecil
 nuget Newtonsoft.Json
 nuget nunit
+nuget FSharp.Collections.ParallelSeq

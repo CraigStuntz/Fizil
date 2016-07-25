@@ -3,35 +3,61 @@
 open ExecutionResult
 open System
 open System.Globalization
+open System.Threading
+
+
+// these global counters are incremented by functions running in parallel
+let private crashes_          = ref 0L
+let private executions_       = ref 0L
+let private nonZeroExitCodes_ = ref 0L
+let private paths_            = ref 0L
+
+let reset() =
+    crashes_          := 0L
+    executions_       := 0L
+    nonZeroExitCodes_ := 0L
+    paths_            := 0L
 
 type Status = 
     {
         StartTime:           DateTimeOffset
         ElapsedTime:         TimeSpan
         StageName:           string
-        Executions:          uint64
-        Crashes:             uint64
-        NonZeroExitCodes:    uint64
-        Paths:               uint64
+        Executions:          int64
+        Crashes:             int64
+        NonZeroExitCodes:    int64
+        Paths:               int64
         ExecutionsPerSecond: float
         LastCrash:           string option
     }
     with 
         member this.AddExecution(stageName: string, result: Result) =
             let elapsedTime = DateTimeOffset.UtcNow - this.StartTime
-            let executions = this.Executions + 1UL
+            let executions = Interlocked.Increment(executions_)
             let executionsPerSecond = 
                 if (elapsedTime.TotalMilliseconds > 0.0) 
                 then Convert.ToDouble(executions) / Convert.ToDouble(elapsedTime.TotalMilliseconds) * 1000.0
                 else 0.0
+            let crashes = 
+                if result.Crashed
+                then Interlocked.Increment(crashes_)
+                else !crashes_
+            let nonZeroExitCodes = 
+                if result.ExitCode <> 0
+                then Interlocked.Increment(nonZeroExitCodes_)
+                else !nonZeroExitCodes_
+            let paths = 
+                if result.NewPathFound
+                then Interlocked.Increment(paths_)
+                else !paths_
             {
                 StartTime           = this.StartTime
                 ElapsedTime         = elapsedTime
                 StageName           = stageName
                 Executions          = executions
-                Crashes             = this.Crashes          + (if result.Crashed       then 1UL else 0UL)
-                NonZeroExitCodes    = this.NonZeroExitCodes + (if result.ExitCode <> 0 then 1UL else 0UL)
-                Paths               = this.Paths            + (if result.NewPathFound  then 1UL else 0UL)
+                Crashes             = crashes
+                NonZeroExitCodes    = nonZeroExitCodes
+                Paths               = paths
                 ExecutionsPerSecond = executionsPerSecond
                 LastCrash           = 
                     match result.Crashed, result.HasStdErrOutput with
@@ -46,10 +72,10 @@ let initialState() =
         StartTime           = DateTimeOffset.UtcNow
         ElapsedTime         = TimeSpan.Zero
         StageName           = "initializing"
-        Executions          = 0UL
-        Crashes             = 0UL
-        NonZeroExitCodes    = 0UL
-        Paths               = 0UL
+        Executions          = 0L
+        Crashes             = 0L
+        NonZeroExitCodes    = 0L
+        Paths               = 0L
         ExecutionsPerSecond = 0.0
         LastCrash           = None
     }

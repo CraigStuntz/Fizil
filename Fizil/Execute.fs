@@ -5,6 +5,7 @@ open System.Diagnostics
 open System.Linq
 open System.IO
 open Fizil.Properties
+open FSharp.Collections.ParallelSeq
 open ExecutionResult
 open Log
 open Project
@@ -49,7 +50,6 @@ type private ExecutionState = {
     FindingsFolder: string
     ObservedPaths:  HashSet<string>
     Results:        Result list
-    Status:         Display.Status
 }
 
 let initializeTestRun (project: Project) =
@@ -88,13 +88,14 @@ let private checkProperties (propertyCheckers: IPropertyChecker list) (testRun: 
     | _ -> []
 
 
-let private executeApplication (inputMethod: InputMethod) (executablePath: string) (propertyCheckers: IPropertyChecker list) (testCase: TestCase) =
+let private executeApplication (inputMethod: InputMethod) (executablePath: string) (propertyCheckers: IPropertyChecker list) (sharedMemoryName: string) (testCase: TestCase) =
     use proc = new Process()
     proc.StartInfo.FileName               <- executablePath
     inputMethod.BeforeStart proc testCase.Data
     proc.StartInfo.UseShellExecute        <- false
     proc.StartInfo.RedirectStandardOutput <- true
     proc.StartInfo.RedirectStandardError  <- true
+    proc.StartInfo.EnvironmentVariables.Add(SharedMemory.environmentVariableName, sharedMemoryName)
     let output = new System.Text.StringBuilder()
     let err = new System.Text.StringBuilder()
     proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
@@ -119,6 +120,7 @@ let private executeApplication (inputMethod: InputMethod) (executablePath: strin
         |> List.filter (fun propertyCheckResult -> not <| propertyCheckResult.Verified )
     proc.Close()
     {
+        StageName          = testCase.Stage
         StdErr             = testRun.StdErr
         StdOut             = testRun.StdOut
         ExitCode           = testRun.ExitCode
@@ -186,10 +188,17 @@ let private maybeRecordFinding (project: Project) (state: ExecutionState) (resul
     else state.FindingName
 
 
+let private executionId = ref 0L
+/// returns a unique (for this test run) name each time it's called
+let private getSharedMemoryName() =
+    sprintf "Fizil-shared-memory-%d" (System.Threading.Interlocked.Increment(executionId))
+
+
 let private executeApplicationTestCase (project: Project) (log: Logger) (inputMethod: InputMethod) (executablePath) (state: ExecutionState) (testCase: TestCase) =
     log.ToFile Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
-    use sharedMemory = SharedMemory.create()
-    let result = executeApplication inputMethod executablePath (getPropertyCheckers()) testCase
+    let sharedMemoryName = getSharedMemoryName()
+    use sharedMemory = SharedMemory.create(sharedMemoryName)
+    let result = executeApplication inputMethod executablePath (getPropertyCheckers()) sharedMemoryName testCase
     let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
     let hashed = getHash state.Hash finalSharedMemory
     let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
@@ -201,14 +210,13 @@ let private executeApplicationTestCase (project: Project) (log: Logger) (inputMe
     log.ToFile Verbose (sprintf "StdOut: %s"    resultWithNewPaths.StdOut)
     log.ToFile Verbose (sprintf "StdErr: %s"    resultWithNewPaths.StdErr)
     log.ToFile Verbose (sprintf "Exit code: %i" resultWithNewPaths.ExitCode)
-    let newDisplayStatus = Display.update(testCase.Stage, state.Status, resultWithNewPaths)
+    Display.postResult(resultWithNewPaths)
     if   (resultWithNewPaths |> hasPropertyViolations)
     then log.ToFile Verbose (resultWithNewPaths.PropertyViolations |> formatPropertyViolations)
     let findingName = maybeRecordFinding project state resultWithNewPaths testCase
     { state with
         FindingName = findingName
         Results     = resultWithNewPaths :: state.Results
-        Status      = newDisplayStatus
     }
 
 
@@ -238,6 +246,7 @@ let allTests (log: Logger) (project: Project) =
         Log.error (sprintf "No example files found in %s" project.Directories.Examples)
         ExitCodes.examplesNotFound
     | examples ->
+        executionId := 0L
         let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
         let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
         let inputMethod     = project |> projectInputMethod
@@ -255,11 +264,10 @@ let allTests (log: Logger) (project: Project) =
                 FindingName    = 0
                 FindingsFolder = findingsFolder
                 Results        = []
-                Status         = Display.initialState()
             } 
             |> withUniqueFindingsFolder project
         let finalState = 
             testCases
-                |> Seq.fold (executeApplicationTestCase project log inputMethod executablePath) initialState
+                |> PSeq.fold (executeApplicationTestCase project log inputMethod executablePath) initialState
         logResults log finalState.Results
         ExitCodes.success

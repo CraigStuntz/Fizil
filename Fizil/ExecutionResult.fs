@@ -4,6 +4,7 @@ open Fizil.Properties
 
 type Result = 
     {
+        StageName:          string
         StdErr:             string
         StdOut:             string
         ExitCode:           int

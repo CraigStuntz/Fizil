@@ -3,61 +3,35 @@
 open ExecutionResult
 open System
 open System.Globalization
-open System.Threading
 
-
-// these global counters are incremented by functions running in parallel
-let private crashes_          = ref 0L
-let private executions_       = ref 0L
-let private nonZeroExitCodes_ = ref 0L
-let private paths_            = ref 0L
-
-let reset() =
-    crashes_          := 0L
-    executions_       := 0L
-    nonZeroExitCodes_ := 0L
-    paths_            := 0L
-
-type Status = 
+type private Status = 
     {
         StartTime:           DateTimeOffset
         ElapsedTime:         TimeSpan
         StageName:           string
-        Executions:          int64
-        Crashes:             int64
-        NonZeroExitCodes:    int64
-        Paths:               int64
+        Executions:          uint64
+        Crashes:             uint64
+        NonZeroExitCodes:    uint64
+        Paths:               uint64
         ExecutionsPerSecond: float
         LastCrash:           string option
     }
     with 
-        member this.AddExecution(stageName: string, result: Result) =
+        member this.AddExecution(result: Result) =
             let elapsedTime = DateTimeOffset.UtcNow - this.StartTime
-            let executions = Interlocked.Increment(executions_)
+            let executions = this.Executions + 1UL
             let executionsPerSecond = 
                 if (elapsedTime.TotalMilliseconds > 0.0) 
                 then Convert.ToDouble(executions) / Convert.ToDouble(elapsedTime.TotalMilliseconds) * 1000.0
                 else 0.0
-            let crashes = 
-                if result.Crashed
-                then Interlocked.Increment(crashes_)
-                else !crashes_
-            let nonZeroExitCodes = 
-                if result.ExitCode <> 0
-                then Interlocked.Increment(nonZeroExitCodes_)
-                else !nonZeroExitCodes_
-            let paths = 
-                if result.NewPathFound
-                then Interlocked.Increment(paths_)
-                else !paths_
             {
                 StartTime           = this.StartTime
                 ElapsedTime         = elapsedTime
-                StageName           = stageName
+                StageName           = result.StageName
                 Executions          = executions
-                Crashes             = crashes
-                NonZeroExitCodes    = nonZeroExitCodes
-                Paths               = paths
+                Crashes             = this.Crashes          + (if result.Crashed       then 1UL else 0UL)
+                NonZeroExitCodes    = this.NonZeroExitCodes + (if result.ExitCode <> 0 then 1UL else 0UL)
+                Paths               = this.Paths            + (if result.NewPathFound  then 1UL else 0UL)
                 ExecutionsPerSecond = executionsPerSecond
                 LastCrash           = 
                     match result.Crashed, result.HasStdErrOutput with
@@ -67,15 +41,15 @@ type Status =
             }
 
 
-let initialState() = 
+let private initialState() = 
     {
         StartTime           = DateTimeOffset.UtcNow
         ElapsedTime         = TimeSpan.Zero
         StageName           = "initializing"
-        Executions          = 0L
-        Crashes             = 0L
-        NonZeroExitCodes    = 0L
-        Paths               = 0L
+        Executions          = 0UL
+        Crashes             = 0UL
+        NonZeroExitCodes    = 0UL
+        Paths               = 0UL
         ExecutionsPerSecond = 0.0
         LastCrash           = None
     }
@@ -102,7 +76,7 @@ let private formatTimeSpan(span: TimeSpan) : string =
     sprintf "%d days, %d hrs, %d minutes, %d seconds" span.Days span.Hours span.Minutes span.Seconds
 
 
-let toConsole(status: Status) =
+let private toConsole(status: Status) =
     Console.Clear()
     Console.BackgroundColor <- ConsoleColor.Black
     Console.SetCursorPosition(0, 0)
@@ -115,10 +89,19 @@ let toConsole(status: Status) =
     writeValue "Paths"              titleWidth (status.Paths.ToString(CultureInfo.CurrentUICulture))
     writeValue "Executions/second"  titleWidth (status.ExecutionsPerSecond.ToString("G4", CultureInfo.CurrentUICulture))
     writeParagraph "Last crash"     titleWidth status.LastCrash
-    status
 
 
-let update(stageName: string, previousStatus: Status, currentResult: Result) : Status =
-    previousStatus.AddExecution(stageName, currentResult) 
-        |> toConsole
+let private agent: MailboxProcessor<Result> =
+    MailboxProcessor.Start(fun inbox ->
+        let rec loop (state: Status) = async {
+             let! result = inbox.Receive()
+             let state = state.AddExecution result
+             state |> toConsole
+             return! loop state
+        }
+        loop (initialState()))
+
+
+let postResult(result: Result) =
+    agent.Post result
 

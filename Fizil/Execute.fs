@@ -1,11 +1,12 @@
 ﻿module Execute
 
 open System.Collections.Generic
+open System.Security.Cryptography
 open System.Diagnostics
 open System.Linq
 open System.IO
-open Fizil.Properties
 open FSharp.Collections.ParallelSeq
+open Fizil.Properties
 open ExecutionResult
 open Log
 open Project
@@ -49,7 +50,6 @@ type private ExecutionState = {
     FindingName:    int
     FindingsFolder: string
     ObservedPaths:  HashSet<string>
-    Results:        Result list
 }
 
 let initializeTestRun (project: Project) =
@@ -120,11 +120,12 @@ let private executeApplication (inputMethod: InputMethod) (executablePath: strin
         |> List.filter (fun propertyCheckResult -> not <| propertyCheckResult.Verified )
     proc.Close()
     {
-        StageName          = testCase.Stage
+        TestCase           = testCase
         StdErr             = testRun.StdErr
         StdOut             = testRun.StdOut
         ExitCode           = testRun.ExitCode
         Crashed            = testRun.ExitCode = WinApi.ClrUnhandledExceptionCode
+        SharedMemory       = Array.empty
         NewPathFound       = false
         PropertyViolations = propertyViolations
     }
@@ -158,8 +159,8 @@ let private hasPropertyViolations (result : Result) =
     not <| List.isEmpty result.PropertyViolations
 
 
-let private shouldRecordFinding (testCase: TestCase) (result: Result) =
-    result.Crashed && result.NewPathFound && testCase.SourceFile.IsNone
+let private shouldRecordFinding (result: Result) =
+    result.Crashed && result.NewPathFound && result.TestCase.SourceFile.IsNone
 
 
 let private findingsFolderName (project: Project) (state: ExecutionState) =
@@ -180,12 +181,48 @@ let private recordFinding (project: Project) (state: ExecutionState) (testCase: 
 
 /// Record finding if needed. 
 /// Return name of next finding, in any case
-let private maybeRecordFinding (project: Project) (state: ExecutionState) (result: Result) (testCase: TestCase) =
-    if shouldRecordFinding testCase result 
+let private maybeRecordFinding (project: Project) (state: ExecutionState) (result: Result) =
+    if shouldRecordFinding result 
     then 
-        recordFinding project state testCase
+        recordFinding project state result.TestCase
         state.FindingName + 1
     else state.FindingName
+
+
+let private agent (project: Project) (hash: HashAlgorithm) (log: Logger) : MailboxProcessor<Result> = 
+    let localNow       = System.DateTime.Now
+    let findingsFolder = "findings_" + localNow.ToString("yyyy-MM-dd_HH-mm-ss")
+    let rec withUniqueFindingsFolder (project: Project) (initialState: ExecutionState) = 
+        if Directory.Exists (findingsFolderName project initialState)
+        then withUniqueFindingsFolder project { initialState with FindingsFolder = initialState.FindingsFolder + "_" }
+        else initialState
+    let initialState = 
+        {
+            Hash           = hash
+            ObservedPaths  = HashSet<string>()
+            FindingName    = 0
+            FindingsFolder = findingsFolder
+        } |> withUniqueFindingsFolder project
+    MailboxProcessor.Start(fun inbox ->
+        let rec loop (state: ExecutionState) = async {
+            let! result = inbox.Receive()
+            let hashed = getHash state.Hash result.SharedMemory
+            let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
+            if (result.Crashed)
+            then log.ToFile Standard "Process crashed!"
+            if (newPathFound)
+            then log.ToFile Verbose "New path found"
+            log.ToFile Verbose (sprintf "StdOut: %s"    result.StdOut)
+            log.ToFile Verbose (sprintf "StdErr: %s"    result.StdErr)
+            log.ToFile Verbose (sprintf "Exit code: %i" result.ExitCode)
+            Display.postResult(result)
+            if   (result |> hasPropertyViolations)
+            then log.ToFile Verbose (result.PropertyViolations |> formatPropertyViolations)
+            let findingName = maybeRecordFinding project state result
+            let newState = { state with FindingName = findingName }
+            return! loop newState
+        }
+        loop initialState)
 
 
 let private executionId = ref 0L
@@ -194,50 +231,28 @@ let private getSharedMemoryName() =
     sprintf "Fizil-shared-memory-%d" (System.Threading.Interlocked.Increment(executionId))
 
 
-let private executeApplicationTestCase (project: Project) (log: Logger) (inputMethod: InputMethod) (executablePath) (state: ExecutionState) (testCase: TestCase) =
+let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) (executablePath) (agent: MailboxProcessor<Result>) (testCase: TestCase) =
     log.ToFile Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
     let sharedMemoryName = getSharedMemoryName()
     use sharedMemory = SharedMemory.create(sharedMemoryName)
     let result = executeApplication inputMethod executablePath (getPropertyCheckers()) sharedMemoryName testCase
     let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
-    let hashed = getHash state.Hash finalSharedMemory
-    let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
-    let resultWithNewPaths = { result with NewPathFound = newPathFound }
-    if (resultWithNewPaths.Crashed)
-    then log.ToFile Standard "Process crashed!"
-    if (resultWithNewPaths.NewPathFound)
-    then log.ToFile Verbose "New path found"
-    log.ToFile Verbose (sprintf "StdOut: %s"    resultWithNewPaths.StdOut)
-    log.ToFile Verbose (sprintf "StdErr: %s"    resultWithNewPaths.StdErr)
-    log.ToFile Verbose (sprintf "Exit code: %i" resultWithNewPaths.ExitCode)
-    Display.postResult(resultWithNewPaths)
-    if   (resultWithNewPaths |> hasPropertyViolations)
-    then log.ToFile Verbose (resultWithNewPaths.PropertyViolations |> formatPropertyViolations)
-    let findingName = maybeRecordFinding project state resultWithNewPaths testCase
-    { state with
-        FindingName = findingName
-        Results     = resultWithNewPaths :: state.Results
-    }
+    let resultWithSharedMemory = { result with SharedMemory = finalSharedMemory }
+    agent.Post(resultWithSharedMemory)
 
 
-let private logResults (log: Logger) (results: ExecutionResult.Result list) =
-    log.ToFile Standard "Execution complete"
-    let testRuns   = results |> List.length
-    let crashes    = results |> List.filter (fun result -> result.Crashed)       |> List.length
-    let paths      = results |> List.filter (fun result -> result.NewPathFound)  |> List.length
-    let violations = results |> List.filter hasPropertyViolations                |> List.length
-    let nonzero    = results |> List.filter (fun result -> result.ExitCode <> 0) |> List.length
-    log.ToFile Standard (sprintf "  Total runs:                %i" testRuns)
-    log.ToFile Standard (sprintf "  Crashes:                   %i" crashes)
-    log.ToFile Standard (sprintf "  Nonzero exit codes:        %i" nonzero)
-    log.ToFile Standard (sprintf "  Total paths:               %i" paths)
-    log.ToFile Standard (sprintf "  Total property violations: %i" violations)
-
-
-let rec private withUniqueFindingsFolder (project: Project) (initialState: ExecutionState) = 
-    if Directory.Exists (findingsFolderName project initialState)
-    then withUniqueFindingsFolder project { initialState with FindingsFolder = initialState.FindingsFolder + "_" }
-    else initialState
+//let private logResults (log: Logger) (results: ExecutionResult.Result list) =
+//    log.ToFile Standard "Execution complete"
+//    let testRuns   = results |> List.length
+//    let crashes    = results |> List.filter (fun result -> result.Crashed)       |> List.length
+//    let paths      = results |> List.filter (fun result -> result.NewPathFound)  |> List.length
+//    let violations = results |> List.filter hasPropertyViolations                |> List.length
+//    let nonzero    = results |> List.filter (fun result -> result.ExitCode <> 0) |> List.length
+//    log.ToFile Standard (sprintf "  Total runs:                %i" testRuns)
+//    log.ToFile Standard (sprintf "  Crashes:                   %i" crashes)
+//    log.ToFile Standard (sprintf "  Nonzero exit codes:        %i" nonzero)
+//    log.ToFile Standard (sprintf "  Total paths:               %i" paths)
+//    log.ToFile Standard (sprintf "  Total property violations: %i" violations)
 
 
 let allTests (log: Logger) (project: Project) =
@@ -247,6 +262,7 @@ let allTests (log: Logger) (project: Project) =
         ExitCodes.examplesNotFound
     | examples ->
         executionId := 0L
+        use md5            = System.Security.Cryptography.MD5.Create()
         let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
         let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
         let inputMethod     = project |> projectInputMethod
@@ -254,20 +270,9 @@ let allTests (log: Logger) (project: Project) =
         initializeTestRun project
         log.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
         let testCases      = examples |> Fuzz.all
-        use md5            = System.Security.Cryptography.MD5.Create()
-        let localNow       = System.DateTime.Now
-        let findingsFolder = "findings_" + localNow.ToString("yyyy-MM-dd_HH-mm-ss")
-        let initialState = 
-            {
-                Hash           = md5
-                ObservedPaths  = HashSet<string>()
-                FindingName    = 0
-                FindingsFolder = findingsFolder
-                Results        = []
-            } 
-            |> withUniqueFindingsFolder project
-        let finalState = 
-            testCases
-                |> PSeq.fold (executeApplicationTestCase project log inputMethod executablePath) initialState
-        logResults log finalState.Results
+        let agent = agent project md5 log
+
+        testCases
+            |> PSeq.iter (executeApplicationTestCase log inputMethod executablePath agent)
+        // logResults log finalState.Results
         ExitCodes.success

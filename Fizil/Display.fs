@@ -27,7 +27,7 @@ type private Status =
             {
                 StartTime           = this.StartTime
                 ElapsedTime         = elapsedTime
-                StageName           = result.StageName
+                StageName           = result.TestCase.Stage
                 Executions          = executions
                 Crashes             = this.Crashes          + (if result.Crashed       then 1UL else 0UL)
                 NonZeroExitCodes    = this.NonZeroExitCodes + (if result.ExitCode <> 0 then 1UL else 0UL)

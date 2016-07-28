@@ -188,8 +188,13 @@ let private maybeRecordFinding (project: Project) (state: ExecutionState) (resul
         state.FindingName + 1
     else state.FindingName
 
+[<NoComparison>]
+type private Message = 
+    | TestComplete     of Result
+    | AllTestsComplete of AsyncReplyChannel<ExecutionState>
 
-let private agent (project: Project) (hash: HashAlgorithm) (log: Logger) : MailboxProcessor<Result> = 
+let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> = 
+    let hash           = System.Security.Cryptography.MD5.Create()
     let localNow       = System.DateTime.Now
     let findingsFolder = "findings_" + localNow.ToString("yyyy-MM-dd_HH-mm-ss")
     let rec withUniqueFindingsFolder (project: Project) (initialState: ExecutionState) = 
@@ -205,22 +210,27 @@ let private agent (project: Project) (hash: HashAlgorithm) (log: Logger) : Mailb
         } |> withUniqueFindingsFolder project
     MailboxProcessor.Start(fun inbox ->
         let rec loop (state: ExecutionState) = async {
-            let! result = inbox.Receive()
-            let hashed = getHash state.Hash result.SharedMemory
-            let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
-            if (result.Crashed)
-            then log.ToFile Standard "Process crashed!"
-            if (newPathFound)
-            then log.ToFile Verbose "New path found"
-            log.ToFile Verbose (sprintf "StdOut: %s"    result.StdOut)
-            log.ToFile Verbose (sprintf "StdErr: %s"    result.StdErr)
-            log.ToFile Verbose (sprintf "Exit code: %i" result.ExitCode)
-            Display.postResult(result)
-            if   (result |> hasPropertyViolations)
-            then log.ToFile Verbose (result.PropertyViolations |> formatPropertyViolations)
-            let findingName = maybeRecordFinding project state result
-            let newState = { state with FindingName = findingName }
-            return! loop newState
+            let! message = inbox.Receive()
+            match message with
+            | TestComplete result ->
+                let hashed = getHash state.Hash result.SharedMemory
+                let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
+                if (result.Crashed)
+                then log.ToFile Standard "Process crashed!"
+                if (newPathFound)
+                then log.ToFile Verbose "New path found"
+                log.ToFile Verbose (sprintf "StdOut: %s"    result.StdOut)
+                log.ToFile Verbose (sprintf "StdErr: %s"    result.StdErr)
+                log.ToFile Verbose (sprintf "Exit code: %i" result.ExitCode)
+                Display.postResult(result)
+                if   (result |> hasPropertyViolations)
+                then log.ToFile Verbose (result.PropertyViolations |> formatPropertyViolations)
+                let findingName = maybeRecordFinding project state result
+                let newState = { state with FindingName = findingName }
+                return! loop newState
+            | AllTestsComplete replyChannel ->
+                replyChannel.Reply state
+                hash.Dispose()
         }
         loop initialState)
 
@@ -231,28 +241,14 @@ let private getSharedMemoryName() =
     sprintf "Fizil-shared-memory-%d" (System.Threading.Interlocked.Increment(executionId))
 
 
-let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) (executablePath) (agent: MailboxProcessor<Result>) (testCase: TestCase) =
+let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) (executablePath) (agent: MailboxProcessor<Message>) (testCase: TestCase) =
     log.ToFile Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
     let sharedMemoryName = getSharedMemoryName()
     use sharedMemory = SharedMemory.create(sharedMemoryName)
     let result = executeApplication inputMethod executablePath (getPropertyCheckers()) sharedMemoryName testCase
     let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
     let resultWithSharedMemory = { result with SharedMemory = finalSharedMemory }
-    agent.Post(resultWithSharedMemory)
-
-
-//let private logResults (log: Logger) (results: ExecutionResult.Result list) =
-//    log.ToFile Standard "Execution complete"
-//    let testRuns   = results |> List.length
-//    let crashes    = results |> List.filter (fun result -> result.Crashed)       |> List.length
-//    let paths      = results |> List.filter (fun result -> result.NewPathFound)  |> List.length
-//    let violations = results |> List.filter hasPropertyViolations                |> List.length
-//    let nonzero    = results |> List.filter (fun result -> result.ExitCode <> 0) |> List.length
-//    log.ToFile Standard (sprintf "  Total runs:                %i" testRuns)
-//    log.ToFile Standard (sprintf "  Crashes:                   %i" crashes)
-//    log.ToFile Standard (sprintf "  Nonzero exit codes:        %i" nonzero)
-//    log.ToFile Standard (sprintf "  Total paths:               %i" paths)
-//    log.ToFile Standard (sprintf "  Total property violations: %i" violations)
+    agent.Post(TestComplete resultWithSharedMemory)
 
 
 let allTests (log: Logger) (project: Project) =
@@ -262,7 +258,6 @@ let allTests (log: Logger) (project: Project) =
         ExitCodes.examplesNotFound
     | examples ->
         executionId := 0L
-        use md5            = System.Security.Cryptography.MD5.Create()
         let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
         let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
         let inputMethod     = project |> projectInputMethod
@@ -270,9 +265,10 @@ let allTests (log: Logger) (project: Project) =
         initializeTestRun project
         log.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
         let testCases      = examples |> Fuzz.all
-        let agent = agent project md5 log
+        let agent = agent project log
 
         testCases
             |> PSeq.iter (executeApplicationTestCase log inputMethod executablePath agent)
-        // logResults log finalState.Results
+        // Tell agent we're done, dispose stuff it holds.
+        let _finalState = agent.PostAndReply(fun replyChannel -> AllTestsComplete replyChannel)
         ExitCodes.success

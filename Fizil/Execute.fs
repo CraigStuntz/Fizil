@@ -222,7 +222,7 @@ let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> =
                 log.ToFile Verbose (sprintf "StdOut: %s"    result.StdOut)
                 log.ToFile Verbose (sprintf "StdErr: %s"    result.StdErr)
                 log.ToFile Verbose (sprintf "Exit code: %i" result.ExitCode)
-                Display.postResult(result)
+                Display.postResult { result with NewPathFound = newPathFound }
                 if   (result |> hasPropertyViolations)
                 then log.ToFile Verbose (result.PropertyViolations |> formatPropertyViolations)
                 let findingName = maybeRecordFinding project state result

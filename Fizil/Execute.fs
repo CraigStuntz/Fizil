@@ -194,20 +194,6 @@ type private Message =
     | AllTestsComplete of AsyncReplyChannel<ExecutionState>
 
 let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> = 
-    let hash           = System.Security.Cryptography.MD5.Create()
-    let localNow       = System.DateTime.Now
-    let findingsFolder = "findings_" + localNow.ToString("yyyy-MM-dd_HH-mm-ss")
-    let rec withUniqueFindingsFolder (project: Project) (initialState: ExecutionState) = 
-        if Directory.Exists (findingsFolderName project initialState)
-        then withUniqueFindingsFolder project { initialState with FindingsFolder = initialState.FindingsFolder + "_" }
-        else initialState
-    let initialState = 
-        {
-            Hash           = hash
-            ObservedPaths  = HashSet<string>()
-            FindingName    = 0
-            FindingsFolder = findingsFolder
-        } |> withUniqueFindingsFolder project
     MailboxProcessor.Start(fun inbox ->
         let rec loop (state: ExecutionState) = async {
             let! message = inbox.Receive()
@@ -230,9 +216,24 @@ let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> =
                 return! loop newState
             | AllTestsComplete replyChannel ->
                 replyChannel.Reply state
-                hash.Dispose()
         }
-        loop initialState)
+        async {
+            let localNow       = System.DateTime.Now
+            let findingsFolder = "findings_" + localNow.ToString("yyyy-MM-dd_HH-mm-ss")
+            let rec withUniqueFindingsFolder (project: Project) (state: ExecutionState) = 
+                if Directory.Exists (findingsFolderName project state)
+                then withUniqueFindingsFolder project { state with FindingsFolder = state.FindingsFolder + "_" }
+                else state
+            use hash = System.Security.Cryptography.MD5.Create()
+            let initialState = 
+                {
+                    Hash           = hash
+                    ObservedPaths  = HashSet<string>()
+                    FindingName    = 0
+                    FindingsFolder = findingsFolder
+                } |> withUniqueFindingsFolder project
+            do! loop initialState
+        })
 
 
 let private executionId = ref 0L

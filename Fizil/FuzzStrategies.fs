@@ -143,14 +143,13 @@ let arith8 : FuzzStrategy =
 /// example data and producing new examples to try
 let all = [ 
     useOriginalExample
-    arith8
     bitFlip 1
     bitFlip 2
     bitFlip 4
     byteFlip 1
     byteFlip 2
     byteFlip 4
-    
+    arith8
 ]
                 
 

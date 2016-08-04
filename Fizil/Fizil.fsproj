@@ -60,7 +60,6 @@
     <Compile Include="ExecutionResult.fs" />
     <Compile Include="Log.fs" />
     <Compile Include="WinApi.fs" />
-    <Compile Include="FuzzStrategies.fs" />
     <Compile Include="Fuzz.fs" />
     <Compile Include="Arguments.fs" />
     <Compile Include="Project.fs" />

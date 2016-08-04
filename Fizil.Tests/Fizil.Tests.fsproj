@@ -65,7 +65,7 @@
   -->
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="FuzzStrategiesTests.fs" />
+    <Compile Include="FuzzTests.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

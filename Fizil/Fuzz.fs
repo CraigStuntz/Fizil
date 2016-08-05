@@ -140,6 +140,52 @@ let arith8 : FuzzStrategy =
             TestCases = testCases
         }
 
+
+let arith16 : FuzzStrategy =
+    fun (bytes: byte[]) ->
+        let testCases = seq {
+            for i = 0 to bytes.Length - 2 do
+                for addend = 1us to uint16(arithMax) do
+                    let origLE = uint16(bytes.[i]) + (uint16(bytes.[i + 1]) * 256us)
+                    let origBE = (uint16(bytes.[i]) * 256us) + uint16(bytes.[i + 1])
+                    let newWordLEPlus  = origLE + addend
+                    let newWordLEMinus = origLE - addend
+                    let newWordBEPlus  = origBE + addend
+                    let newWordBEMinus = origBE - addend
+                    // Try little endian addition and subtraction first. Do it only
+                    // if the operation would affect more than one byte (hence the 
+                    // & 256us overflow checks) and if it couldn't be a product of
+                    // a bitflip. */
+                    if ((origLE &&& 0xffus) + addend > 0xffus) && not(couldBeBitflip(uint32(origLE), uint32(newWordLEPlus)))
+                    then 
+                        let newBytes = Array.copy bytes
+                        newBytes.[i]     <- uint8(newWordLEPlus % 256us)
+                        newBytes.[i + 1] <- uint8(newWordLEPlus / 256us)
+                        yield newBytes
+                    if ((origLE &&& 0xffus) < addend) && not(couldBeBitflip(uint32(origLE), uint32(newWordLEMinus)))
+                    then 
+                        let newBytes = Array.copy bytes
+                        newBytes.[i]     <- uint8(newWordLEMinus % 256us)
+                        newBytes.[i + 1] <- uint8(newWordLEMinus / 256us)
+                        yield newBytes
+                    if ((origBE &&& 0xffus) + addend > 0xffus) && not(couldBeBitflip(uint32(origBE), uint32(newWordBEPlus)))
+                    then 
+                        let newBytes = Array.copy bytes
+                        newBytes.[i]     <- uint8(newWordBEPlus / 256us)
+                        newBytes.[i + 1] <- uint8(newWordBEPlus % 256us)
+                        yield newBytes
+                    if ((origLE &&& 0xffus) < addend) && not(couldBeBitflip(uint32(origBE), uint32(newWordBEMinus)))
+                    then 
+                        let newBytes = Array.copy bytes
+                        newBytes.[i]     <- uint8(newWordBEMinus / 256us)
+                        newBytes.[i + 1] <- uint8(newWordBEMinus % 256us)
+                        yield newBytes
+        }
+        {
+            Name = "arith 16/8"
+            TestCases = testCases
+        }
+
 /// An ordered list of functions to use when starting with a single piece of 
 /// example data and producing new examples to try
 let private allStrategies = [ 
@@ -151,6 +197,7 @@ let private allStrategies = [
     byteFlip 2
     byteFlip 4
     arith8
+    arith16
 ]
 
 let private applyStrategy (strategy: FuzzStrategy) (examples: TestCase list) : seq<TestCase> = 

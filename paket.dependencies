@@ -2,6 +2,6 @@ source https://nuget.org/api/v2
 
 nuget FSharp.Configuration
 nuget Mono.Cecil
+nuget FSharp.Collections.ParallelSeq
 nuget Newtonsoft.Json
 nuget nunit
-nuget FSharp.Collections.ParallelSeq

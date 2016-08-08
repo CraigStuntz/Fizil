@@ -95,3 +95,23 @@ module FuzzTest =
                 [| 142uy |] 
             ]
         Assert.That(fuzzed.TestCases, Is.EqualTo expected)
+
+
+    [<Test>]
+    let ``swap16 does what it says on the tin``() = 
+        let input : uint16 = 0xFF00us
+        let actual = Fuzz.swap16 input
+        Assert.That(actual, Is.EqualTo 0x00FFus)
+
+
+    [<Test>]
+    let ``swap32 does what it says on the tin``() = 
+        let input : uint32 = 0xFF0FF000u
+        let actual = Fuzz.swap32 input
+        Assert.That(actual, Is.EqualTo 0x00F00FFFu)
+
+
+    [<Test>]
+    let ``toBytes works``() =
+        let actual = Fuzz.toBytes(0xAABBCCDDu)
+        Assert.That(actual, Is.EqualTo((0xAAuy, 0xBBuy, 0xCCuy, 0xDDuy)))

@@ -141,17 +141,37 @@ let arith8 : FuzzStrategy =
         }
 
 
+let swap16 (value: uint16) =
+    (value <<< 8) ||| (value >>> 8)
+
+
+let swap32 (value: uint32) =
+    (value <<< 24) 
+    ||| ((value <<< 8) &&& 0x00FF0000u)
+    ||| ((value >>> 8) &&& 0x0000FF00u)
+    ||| (value >>> 24)
+
+
+let toBytes (value: uint32) =
+    (
+        uint8(value >>> 24),
+        uint8(value >>> 16),
+        uint8(value >>> 8),
+        uint8(value)
+    )
+
+
 let arith16 : FuzzStrategy =
     fun (bytes: byte[]) ->
         let testCases = seq {
             for i = 0 to bytes.Length - 2 do
                 for addend = 1us to uint16(arithMax) do
                     let origLE = uint16(bytes.[i]) + (uint16(bytes.[i + 1]) * 256us)
-                    let origBE = (uint16(bytes.[i]) * 256us) + uint16(bytes.[i + 1])
+                    let origBE = swap16 origLE
                     let newWordLEPlus  = origLE + addend
                     let newWordLEMinus = origLE - addend
-                    let newWordBEPlus  = origBE + addend
-                    let newWordBEMinus = origBE - addend
+                    let newWordBEPlus  = swap16 (origBE + addend)
+                    let newWordBEMinus = swap16 (origBE - addend)
                     // Try little endian addition and subtraction first. Do it only
                     // if the operation would affect more than one byte (hence the 
                     // & 256us overflow checks) and if it couldn't be a product of
@@ -171,20 +191,84 @@ let arith16 : FuzzStrategy =
                     if ((origBE &&& 0xffus) + addend > 0xffus) && not(couldBeBitflip(uint32(origBE), uint32(newWordBEPlus)))
                     then 
                         let newBytes = Array.copy bytes
-                        newBytes.[i]     <- uint8(newWordBEPlus / 256us)
-                        newBytes.[i + 1] <- uint8(newWordBEPlus % 256us)
+                        newBytes.[i]     <- uint8(newWordBEPlus % 256us)
+                        newBytes.[i + 1] <- uint8(newWordBEPlus / 256us)
                         yield newBytes
                     if ((origLE &&& 0xffus) < addend) && not(couldBeBitflip(uint32(origBE), uint32(newWordBEMinus)))
                     then 
                         let newBytes = Array.copy bytes
-                        newBytes.[i]     <- uint8(newWordBEMinus / 256us)
-                        newBytes.[i + 1] <- uint8(newWordBEMinus % 256us)
+                        newBytes.[i]     <- uint8(newWordBEMinus % 256us)
+                        newBytes.[i + 1] <- uint8(newWordBEMinus / 256us)
                         yield newBytes
         }
         {
             Name = "arith 16/8"
             TestCases = testCases
         }
+
+
+let arith32 : FuzzStrategy =
+    fun (bytes: byte[]) ->
+        let testCases = seq {
+            for i = 0 to bytes.Length - 4 do
+                for addend = 1u to uint32(arithMax) do
+                    let origLE = 
+                        uint32(bytes.[i]) 
+                        + (uint32(bytes.[i + 1]) * 0x0000FFu)
+                        + (uint32(bytes.[i + 2]) * 0x00FF00u)
+                        + (uint32(bytes.[i + 3]) * 0xFF0000u)
+
+                    let origBE = swap32 origLE
+                    let newWordLEPlus  = origLE + addend
+                    let newWordLEMinus = origLE - addend
+                    let newWordBEPlus  = swap32 (origBE + addend)
+                    let newWordBEMinus = swap32 (origBE - addend)
+                    // Try little endian addition and subtraction first. Do it only
+                    // if the operation would affect more than one byte (hence the 
+                    // & 256us overflow checks) and if it couldn't be a product of
+                    // a bitflip. */
+                    if ((origLE &&& 0xffffu) + addend > 0xffffu) && not(couldBeBitflip(uint32(origLE), uint32(newWordLEPlus)))
+                    then 
+                        let newBytes = Array.copy bytes
+                        let b3, b2, b1, b0 = newWordLEPlus |> toBytes
+                        newBytes.[i]     <- b0
+                        newBytes.[i + 1] <- b1
+                        newBytes.[i + 2] <- b2
+                        newBytes.[i + 3] <- b3
+                        yield newBytes
+                    if ((origLE &&& 0xffffu) < addend) && not(couldBeBitflip(uint32(origLE), uint32(newWordLEMinus)))
+                    then 
+                        let newBytes = Array.copy bytes
+                        let b3, b2, b1, b0 = newWordLEMinus |> toBytes
+                        newBytes.[i]     <- b0
+                        newBytes.[i + 1] <- b1
+                        newBytes.[i + 2] <- b2
+                        newBytes.[i + 3] <- b3
+                        yield newBytes
+                    if ((origBE &&& 0xffffu) + addend > 0xffffu) && not(couldBeBitflip(uint32(origBE), uint32(newWordBEPlus)))
+                    then 
+                        let newBytes = Array.copy bytes
+                        let b3, b2, b1, b0 = newWordBEPlus |> toBytes
+                        newBytes.[i]     <- b0
+                        newBytes.[i + 1] <- b1
+                        newBytes.[i + 2] <- b2
+                        newBytes.[i + 3] <- b3
+                        yield newBytes
+                    if ((origLE &&& 0xffffu) < addend) && not(couldBeBitflip(uint32(origBE), uint32(newWordBEMinus)))
+                    then 
+                        let newBytes = Array.copy bytes
+                        let b3, b2, b1, b0 = newWordBEMinus |> toBytes
+                        newBytes.[i]     <- b0
+                        newBytes.[i + 1] <- b1
+                        newBytes.[i + 2] <- b2
+                        newBytes.[i + 3] <- b3
+                        yield newBytes
+        }
+        {
+            Name = "arith 32/8"
+            TestCases = testCases
+        }
+
 
 /// An ordered list of functions to use when starting with a single piece of 
 /// example data and producing new examples to try
@@ -198,6 +282,7 @@ let private allStrategies = [
     byteFlip 4
     arith8
     arith16
+    arith32
 ]
 
 let private applyStrategy (strategy: FuzzStrategy) (examples: TestCase list) : seq<TestCase> = 

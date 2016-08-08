@@ -5,6 +5,11 @@ open System
 open System.Globalization
 
 
+let backgroundColor = ConsoleColor.Black
+let titleColor      = ConsoleColor.Gray
+let valueColor      = ConsoleColor.White
+
+
 let private consoleTitleRedrawInterval = TimeSpan(0, 0, 0, 15, 0)
 
 
@@ -71,16 +76,16 @@ let private initialState() =
 let private writeValue (redrawTitle: bool) (title: string) (titleWidth: int) (formattedValue: string) =
     if redrawTitle
     then 
-        Console.ForegroundColor <- ConsoleColor.Gray
+        Console.ForegroundColor <- titleColor
         Console.Write ((title.PadLeft titleWidth) + " : ")
     else
         Console.CursorLeft <- titleWidth + 3
-    Console.ForegroundColor <- ConsoleColor.White
+    Console.ForegroundColor <- valueColor
     Console.WriteLine (formattedValue + "   ")
 
 
 let private writeParagraph (redrawTitle: bool) (title: string) (leftColumnWidth: int) (formattedValue: string option) =
-    Console.ForegroundColor <- ConsoleColor.Gray
+    Console.ForegroundColor <- titleColor
     match formattedValue with
     | Some value -> 
         if redrawTitle
@@ -88,7 +93,7 @@ let private writeParagraph (redrawTitle: bool) (title: string) (leftColumnWidth:
             Console.WriteLine ((title.PadLeft leftColumnWidth) + " : ")
         else
             Console.CursorTop <- Console.CursorTop + 1
-        Console.ForegroundColor <- ConsoleColor.White
+        Console.ForegroundColor <- valueColor
         Console.WriteLine value
     | None -> 
         if redrawTitle
@@ -104,7 +109,7 @@ let private formatTimeSpan(span: TimeSpan) : string =
 
 
 let private toConsole(status: Status) =
-    Console.BackgroundColor <- ConsoleColor.Black
+    Console.BackgroundColor <- backgroundColor
     Console.SetCursorPosition(0, 0)
     let titleWidth = 19
     let redrawTitle = status.ShouldRedrawTitles

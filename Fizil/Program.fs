@@ -24,6 +24,8 @@ let private waitIfDebugging() =
 
 [<EntryPoint>]
 let main argv = 
+    let originalForegroundColor = Console.ForegroundColor
+    let originalBackgroundColor = Console.BackgroundColor
     try
         try
             Console.CursorVisible <- false        
@@ -49,6 +51,8 @@ let main argv =
                     let log              = Log.create(None, arguments.Verbosity)
                     match Project.load arguments.ProjectFileName with
                     | Some project -> 
+                        Console.BackgroundColor <- Display.backgroundColor
+                        Console.Clear()
                         Execute.allTests log project
                     | None -> 
                         Log.error (sprintf "Project file %s not found" arguments.ProjectFileName)
@@ -67,4 +71,6 @@ let main argv =
                 waitIfDebugging()
                 ExitCodes.internalError
     finally
-        Console.CursorVisible <- true
+        Console.CursorVisible   <- true
+        Console.ForegroundColor <- originalForegroundColor
+        Console.BackgroundColor <- originalBackgroundColor

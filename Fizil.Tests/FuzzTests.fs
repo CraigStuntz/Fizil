@@ -1,6 +1,7 @@
 ﻿namespace Fizil.Tests
 
 open NUnit.Framework
+open FsUnit
 
 module FuzzTest = 
 
@@ -8,8 +9,9 @@ module FuzzTest =
     let ``useOriginalExample returns originals``() = 
         let input = [| 0uy |]
         let fuzzed = Fuzz.useOriginalExample input
-        Assert.That(fuzzed.TestCases |> Seq.length, Is.EqualTo 1)
-        Assert.That(fuzzed.TestCases |> Seq.head |> Seq.head, Is.EqualTo (input |> Array.head))
+        
+        fuzzed.TestCases |> Seq.length |> should equal 1
+        fuzzed.TestCases |> Seq.head |> Seq.head |> should equal (input |> Array.head)
 
 
     [<Test>]
@@ -35,7 +37,8 @@ module FuzzTest =
         ]
         let fuzzed = Fuzz.bitFlip 1 input
         let actual = List.ofSeq fuzzed.TestCases
-        Assert.That(actual, Is.EqualTo expected)
+
+        actual |> should equal expected
 
 
     [<Test>]
@@ -48,23 +51,30 @@ module FuzzTest =
         ]
         let fuzzed = Fuzz.byteFlip 1 input
         let actual = List.ofSeq fuzzed.TestCases
-        Assert.That(actual, Is.EqualTo expected)
+        actual |> should equal expected
+
 
     [<Test>]
     let ``couldBeBitflip 0 1 is true``() = 
         let actual = Fuzz.couldBeBitflip(0u, 1u)
-        Assert.That(actual, Is.True)
+
+        actual |> should be True
+
 
     [<Test>]
-    let ``couldBeBitflip 0 0 is true``() = 
+    let ``couldBeBitflip 0 0 is false``() = 
         let actual = Fuzz.couldBeBitflip(0u, 0u)
-        Assert.That(actual, Is.False)
+
+        actual |> should be False
+
 
     [<Test>]
     let ``couldBeBitflip with non-bitflipped values is false``() = 
         let oldValue = 2863311530u // 10101010101010101010101010101010
         let actual = Fuzz.couldBeBitflip(oldValue, 0u)
-        Assert.That(actual, Is.False)
+
+        actual |> should be False
+
 
     [<Test>]
     let ``arith8 returns expected values``() = 
@@ -94,27 +104,31 @@ module FuzzTest =
                 [| 141uy |] 
                 [| 142uy |] 
             ]
-        Assert.That(fuzzed.TestCases, Is.EqualTo expected)
+
+        fuzzed.TestCases |> should equal expected
 
 
     [<Test>]
     let ``swap16 does what it says on the tin``() = 
         let input : uint16 = 0xFF00us
         let actual = Fuzz.swap16 input
-        Assert.That(actual, Is.EqualTo 0x00FFus)
+
+        actual |> should equal 0x00FFus
 
 
     [<Test>]
     let ``swap32 does what it says on the tin``() = 
         let input : uint32 = 0xFF0FF000u
         let actual = Fuzz.swap32 input
-        Assert.That(actual, Is.EqualTo 0x00F00FFFu)
+
+        actual |> should equal 0x00F00FFFu
 
 
     [<Test>]
     let ``toBytes works``() =
         let actual = Fuzz.toBytes(0xAABBCCDDu)
-        Assert.That(actual, Is.EqualTo((0xAAuy, 0xBBuy, 0xCCuy, 0xDDuy)))
+
+        actual |> should equal (0xAAuy, 0xBBuy, 0xCCuy, 0xDDuy)
 
 
     [<TestCase(1u,   3u, 1uy, true)>]
@@ -124,4 +138,4 @@ module FuzzTest =
     let ``couldBeArith should return expected results``(oldValue: uint32, newValue: uint32, numBytes: uint8, expected: bool) =
         let actual = Fuzz.couldBeArith(oldValue, newValue, numBytes)
 
-        Assert.That(actual, Is.EqualTo expected)
+        actual |> should equal expected

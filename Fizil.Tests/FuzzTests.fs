@@ -115,3 +115,13 @@ module FuzzTest =
     let ``toBytes works``() =
         let actual = Fuzz.toBytes(0xAABBCCDDu)
         Assert.That(actual, Is.EqualTo((0xAAuy, 0xBBuy, 0xCCuy, 0xDDuy)))
+
+
+    [<TestCase(1u,   3u, 1uy, true)>]
+    [<TestCase(1u,   3u, 4uy, true)>]
+    [<TestCase(1u, 200u, 1uy, false)>]
+    [<TestCase(1u, 200u, 4uy, false)>]
+    let ``couldBeArith should return expected results``(oldValue: uint32, newValue: uint32, numBytes: uint8, expected: bool) =
+        let actual = Fuzz.couldBeArith(oldValue, newValue, numBytes)
+
+        Assert.That(actual, Is.EqualTo expected)

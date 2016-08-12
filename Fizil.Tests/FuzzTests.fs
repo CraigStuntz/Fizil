@@ -131,10 +131,12 @@ module FuzzTest =
         actual |> should equal (0xAAuy, 0xBBuy, 0xCCuy, 0xDDuy)
 
 
-    [<TestCase(1u,   3u, 1uy, true)>]
-    [<TestCase(1u,   3u, 4uy, true)>]
-    [<TestCase(1u, 200u, 1uy, false)>]
-    [<TestCase(1u, 200u, 4uy, false)>]
+    [<TestCase(1u,     3u, 1uy, true)>]
+    [<TestCase(1u,     3u, 4uy, true)>]
+    [<TestCase(1u,   200u, 1uy, false)>]
+    [<TestCase(1u,   200u, 4uy, false)>]
+    [<TestCase(244u, 257u, 1uy, false)>]
+    [<TestCase(244u, 257u, 2uy, true)>]
     let ``couldBeArith should return expected results``(oldValue: uint32, newValue: uint32, numBytes: uint8, expected: bool) =
         let actual = Fuzz.couldBeArith(oldValue, newValue, numBytes)
 

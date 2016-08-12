@@ -270,6 +270,63 @@ let arith32 : FuzzStrategy =
         }
 
 
+let inline difference a b = if a > b then a - b else b - a
+
+let couldBeArith(oldVal: uint32, newVal: uint32, numberOfBytes: uint8) : bool =
+    if (oldVal = newVal) 
+    then true 
+    else
+        // See if one-byte adjustments to any byte could produce this result.
+        let rec loop1 (diffs: uint8, ov: uint8, nv: uint8, byteIndex: int) =
+            if ((uint8 byteIndex) = numberOfBytes)
+            then (diffs, ov, nv)
+            else 
+                let a = oldVal >>> (8 * byteIndex) |> uint8
+                let b = newVal >>> (8 * byteIndex) |> uint8
+
+                if (a <> b)
+                then loop1 (diffs + 1uy, a, b, byteIndex + 1)
+                else loop1 (diffs, ov, nv, byteIndex + 1)
+        let (diffs1, ov1, nv1) = loop1(0uy, 0uy, 0uy, 0)
+
+        // If only one byte differs and the values are within range, return 1. */
+
+        if (diffs1 = 1uy) 
+            && ((difference ov1 nv1) <= arithMax)
+        then true
+        else
+            if (numberOfBytes = 1uy)
+            then false
+            else
+                // See if two-byte adjustments to any byte would produce this result
+                let rec loop2 (diffs: uint8, ov: uint16, nv: uint16, byteIndex: int) =
+                    if (uint8 byteIndex) = (numberOfBytes / 2uy)
+                    then (diffs, ov, nv)
+                    else 
+                        let a = oldVal >>> (16 * byteIndex) |> uint16
+                        let b = newVal >>> (16 * byteIndex) |> uint16
+
+                        if (a <> b)
+                        then loop2 (diffs + 1uy, a, b, byteIndex + 1)
+                        else loop2 (diffs, ov, nv, byteIndex + 1)
+                let (diffs2, ov2, nv2) = loop2(0uy, 0us, 0us, 0)
+
+                // If only one word differs and the values are within range, return 1.
+
+                if diffs2 = 1uy
+                then 
+                    if (difference ov2 nv2) <= (uint16 arithMax)
+                    then true
+                    else 
+                        if (difference (swap16 ov2) (swap16 nv2)) <= (uint16 arithMax)
+                        then true
+                        else
+                            // Finally, let's do the same thing for dwords.
+                            numberOfBytes = 4uy 
+                                && ((difference oldVal newVal) <= (uint32 arithMax)
+                                    || (difference (swap32 oldVal) (swap32 newVal) <= (uint32 arithMax)))
+                else false
+
 /// An ordered list of functions to use when starting with a single piece of 
 /// example data and producing new examples to try
 let private allStrategies = [ 

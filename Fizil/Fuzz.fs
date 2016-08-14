@@ -327,6 +327,74 @@ let couldBeArith(oldVal: uint32, newVal: uint32, numberOfBytes: uint8) : bool =
                                     || (difference (swap32 oldVal) (swap32 newVal) <= (uint32 arithMax)))
                 else false
 
+let private interesting8 = [|
+   -128y         // Overflow signed 8-bit when decremented  
+   -1y           //                                         
+   0y            //                                         
+   1y            //                                         
+   16y           // One-off with common buffer size         
+   32y           // One-off with common buffer size         
+   64y           // One-off with common buffer size         
+   100y          // One-off with common buffer size         
+   127y          // Overflow signed 8-bit when incremented  
+|]
+
+let private _interest16 = [|
+   -32768s       // Overflow signed 16-bit when decremented 
+   -129s         // Overflow signed 8-bit                   
+   128s          // Overflow signed 8-bit                   
+   255s          // Overflow unsig 8-bit when incremented   
+   256s          // Overflow unsig 8-bit                    
+   512s          // One-off with common buffer size         
+   1000s         // One-off with common buffer size         
+   1024s         // One-off with common buffer size         
+   4096s         // One-off with common buffer size         
+   32767s        // Overflow signed 16-bit when incremented */
+|]
+
+let private interesting16 = 
+    Array.concat [
+        interesting8 |> Array.map int16
+        _interest16
+    ]
+
+let private _interest32 = [|
+   -2147483648   // Overflow signed 32-bit when decremented 
+   -100663046    // Large negative number (endian-agnostic) 
+   -32769        // Overflow signed 16-bit                  
+   32768         // Overflow signed 16-bit                  
+   65535         // Overflow unsig 16-bit when incremented  
+   65536         // Overflow unsig 16 bit                   
+   100663045     // Large positive number (endian-agnostic) 
+   2147483647    // Overflow signed 32-bit when incremented */
+|]
+
+let private interesting32 = 
+    Array.concat [
+        interesting8 |> Array.map int32
+        _interest16  |> Array.map int32
+        _interest32
+    ]
+
+
+let interest8 : FuzzStrategy =
+    fun (bytes: byte[]) ->
+        let testCases = seq {
+            for i = 0 to bytes.Length - 1 do
+                for interesting in interesting8 do 
+                    let oldByte = bytes.[i]
+                    if not (couldBeBitflip(uint32(oldByte), uint32(interesting))
+                        || couldBeArith(uint32(oldByte), uint32(interesting), 1uy))
+                    then 
+                        let newBytes = Array.copy bytes
+                        newBytes.[i] <- (uint8 interesting)
+                        yield newBytes
+        }
+        {
+            Name = "interesting8"
+            TestCases = testCases
+        }
+
 /// An ordered list of functions to use when starting with a single piece of 
 /// example data and producing new examples to try
 let private allStrategies = [ 
@@ -340,6 +408,7 @@ let private allStrategies = [
     arith8
     arith16
     arith32
+    interest8
 ]
 
 let private applyStrategy (strategy: FuzzStrategy) (examples: TestCase list) : seq<TestCase> = 

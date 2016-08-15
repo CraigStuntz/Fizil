@@ -3,11 +3,6 @@
 open System.Collections
 open TestCase
 
-[<NoComparison>]
-type Stage = {
-    Name:      string
-    TestCases: seq<byte[]>
-}
 /// Takes a data example uses it as a seed to generate 0 or more new test cases
 type FuzzStrategy = byte[] -> Stage
 
@@ -15,8 +10,9 @@ type FuzzStrategy = byte[] -> Stage
 let useOriginalExample : FuzzStrategy = 
     fun bytes -> 
         {
-            Name =      "calibration"
-            TestCases = Seq.singleton bytes 
+            Name =                "calibration"
+            TestCasesPerExample = TestCasesPerExample 1
+            TestCases =           Seq.singleton bytes 
         }
 
 
@@ -68,8 +64,9 @@ let bitFlip (flipBits: int) : FuzzStrategy =
                 yield newBytes
         }
         {
-            Name = sprintf "bitflip %d/1" flipBits
-            TestCases = testCases
+            Name =                sprintf "bitflip %d/1" flipBits
+            TestCasesPerExample = TestCasesPerByte 8
+            TestCases =           testCases
         }
 
 
@@ -86,8 +83,9 @@ let byteFlip (flipBytes: int) : FuzzStrategy =
                 yield newBytes
         }
         {
-            Name = sprintf "byteflip %d/1" flipBytes
-            TestCases = testCases
+            Name =                sprintf "byteflip %d/1" flipBytes
+            TestCasesPerExample = TestCasesPerByte 1
+            TestCases =           testCases
         }
 
 /// Helper function to see if a particular change could
@@ -137,6 +135,7 @@ let arith8 : FuzzStrategy =
         }
         {
             Name = "arith 8/8"
+            TestCasesPerExample = TestCasesPerByte ((int arithMax) * 2)
             TestCases = testCases
         }
 
@@ -203,6 +202,7 @@ let arith16 : FuzzStrategy =
         }
         {
             Name = "arith 16/8"
+            TestCasesPerExample = TestCasesPerByte ((int arithMax) * 2)
             TestCases = testCases
         }
 
@@ -266,6 +266,7 @@ let arith32 : FuzzStrategy =
         }
         {
             Name = "arith 32/8"
+            TestCasesPerExample = TestCasesPerByte ((int arithMax) * 2)
             TestCases = testCases
         }
 
@@ -392,6 +393,7 @@ let interest8 : FuzzStrategy =
         }
         {
             Name = "interesting8"
+            TestCasesPerExample = TestCasesPerByte (interesting8 |> Array.length)
             TestCases = testCases
         }
 
@@ -416,7 +418,7 @@ let private applyStrategy (strategy: FuzzStrategy) (examples: TestCase list) : s
         for example in examples do
             let stage = strategy(example.Data)
             for input in stage.TestCases do
-                yield { example with Data = input; SourceFile = None; Stage = stage.Name }
+                yield { example with Data = input; SourceFile = None; Stage = stage }
     }
 
 

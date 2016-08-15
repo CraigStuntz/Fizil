@@ -2,6 +2,7 @@
 
 open Fizil.Properties
 
+[<NoComparison>]
 type Result = 
     {
         TestCase:           TestCase.TestCase

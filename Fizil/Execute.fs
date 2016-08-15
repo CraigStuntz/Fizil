@@ -70,11 +70,12 @@ let private loadExampleFile (project: Project) (filename: string) : byte[] =
 let private loadExamples (project: Project) : TestCase list =
     Directory.EnumerateFiles(project.Directories.Examples, "*", SearchOption.AllDirectories)
         |> Seq.map (fun filename -> 
+            let data = loadExampleFile project filename
             { 
-                Data          = loadExampleFile project filename
+                Data          = data
                 FileExtension = Path.GetExtension(filename)
                 SourceFile    = Some filename
-                Stage         = "calibration"
+                Stage         = Fuzz.useOriginalExample data 
             } )
         |> List.ofSeq
 
@@ -208,7 +209,7 @@ let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> =
                 log.ToFile Verbose (sprintf "StdOut: %s"    result.StdOut)
                 log.ToFile Verbose (sprintf "StdErr: %s"    result.StdErr)
                 log.ToFile Verbose (sprintf "Exit code: %i" result.ExitCode)
-                Display.postResult { result with NewPathFound = newPathFound }
+                Display.postResult (Display.UpdateDisplay {result with NewPathFound = newPathFound })
                 if   (result |> hasPropertyViolations)
                 then log.ToFile Verbose (result.PropertyViolations |> formatPropertyViolations)
                 let findingName = maybeRecordFinding project state result
@@ -266,6 +267,11 @@ let allTests (log: Logger) (project: Project) =
         initializeTestRun project
         log.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
         let testCases      = examples |> Fuzz.all
+        Display.postResult (Display.InitializeDisplay { 
+            StartTime =    System.DateTimeOffset.Now
+            ExampleBytes = examples |> List.sumBy (fun example -> example.Data |> Array.length )
+            ExampleCount = examples |> List.length
+            })
         let agent = agent project log
 
         testCases

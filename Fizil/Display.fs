@@ -3,6 +3,7 @@
 open ExecutionResult
 open System
 open System.Globalization
+open TestCase
 
 
 let backgroundColor = ConsoleColor.Black
@@ -13,9 +14,16 @@ let valueColor      = ConsoleColor.White
 let private consoleTitleRedrawInterval = TimeSpan(0, 0, 0, 15, 0)
 
 
+type Configuration = {
+    ExampleBytes: int
+    ExampleCount: int
+    StartTime:    DateTimeOffset
+}
+
+
 type private Status = 
     {
-        StartTime:           DateTimeOffset
+        Configuration:       Configuration
         ElapsedTime:         TimeSpan
         StageName:           string
         Executions:          uint64
@@ -30,7 +38,12 @@ type private Status =
     with 
         member this.AddExecution(result: Result) =
             let now         = DateTimeOffset.UtcNow 
-            let elapsedTime = now - this.StartTime
+            let elapsedTime = now - this.Configuration.StartTime
+            let stageMaxExecutions = 
+                match result.TestCase.Stage.TestCasesPerExample with
+                | TestCasesPerExample n -> n * this.Configuration.ExampleCount
+                | TestCasesPerByte n    -> n * this.Configuration.ExampleBytes
+            let stageName = sprintf "%s (%d)" result.TestCase.Stage.Name stageMaxExecutions
             let executions  = this.Executions + 1UL
             let executionsPerSecond = 
                 if (elapsedTime.TotalMilliseconds > 0.0) 
@@ -39,9 +52,9 @@ type private Status =
             let shouldRedrawTitles = this.Executions = 0UL || now - this.LastTitleRedraw > consoleTitleRedrawInterval
             let lastTitleRedraw = if shouldRedrawTitles then now else this.LastTitleRedraw
             {
-                StartTime           = this.StartTime
+                Configuration       = this.Configuration
                 ElapsedTime         = elapsedTime
-                StageName           = result.TestCase.Stage
+                StageName           = stageName
                 Executions          = executions
                 Crashes             = this.Crashes          + (if result.Crashed       then 1UL else 0UL)
                 NonZeroExitCodes    = this.NonZeroExitCodes + (if result.ExitCode <> 0 then 1UL else 0UL)
@@ -59,7 +72,7 @@ type private Status =
 
 let private initialState() = 
     {
-        StartTime           = DateTimeOffset.UtcNow
+        Configuration       = { StartTime = DateTimeOffset.UtcNow; ExampleBytes = 0; ExampleCount = 0 }
         ElapsedTime         = TimeSpan.Zero
         StageName           = "initializing"
         Executions          = 0UL
@@ -123,17 +136,28 @@ let private toConsole(status: Status) =
     writeParagraph redrawTitle "Last crash"     titleWidth status.LastCrash
 
 
-let private agent: MailboxProcessor<Result> =
+[<NoComparison>]
+type Message = 
+    | InitializeDisplay of Configuration
+    | UpdateDisplay     of Result
+
+
+let private agent: MailboxProcessor<Message> =
     MailboxProcessor.Start(fun inbox ->
         let rec loop (state: Status) = async {
-             let! result = inbox.Receive()
-             let state' = state.AddExecution result
-             state' |> toConsole
-             return! loop state'
+            let! message = inbox.Receive()
+            match message with
+            | InitializeDisplay configuration ->
+                let state' = { state with Configuration = configuration }
+                return! loop state'               
+            | UpdateDisplay result -> 
+                let state' = state.AddExecution result
+                state' |> toConsole
+                return! loop state'
         }
         loop (initialState()))
 
 
-let postResult(result: Result) =
-    agent.Post result
+let postResult(message: Message) =
+    agent.Post message
 

@@ -46,5 +46,13 @@ Shout-out to the folks at Microsoft who wrote and maintain [peverify](https://ms
 Thank you the authors of and contributors to the fine open source libraries listed below.
 
 ### Open Source License Information
-* [FSharp.Configuration](http://fsprojects.github.io/FSharp.Configuration/) under terms of the [Apache License](https://github.com/fsprojects/FSharp.Configuration/blob/master/LICENSE.txt)
+Fizil is released under the Apache license 2.0. See `license.txt`
+
+Fizil depends on:
+
 * [Cecil](https://github.com/jbevain/cecil) under the terms of the [MIT/X11 license](https://github.com/jbevain/cecil/blob/master/LICENSE.txt)
+* [FSharp.Collections.ParallelSeq](http://fsprojects.github.io/FSharp.Collections.ParallelSeq/) under terms of the [Apache license 2.0](https://github.com/fsprojects/FSharp.Collections.ParallelSeq/blob/master/LICENSE.txt)
+* [FSharp.Configuration](http://fsprojects.github.io/FSharp.Configuration/) under terms of the [Apache License](https://github.com/fsprojects/FSharp.Configuration/blob/master/LICENSE.txt)
+* [FsUnit](http://fsprojects.github.io/FsUnit/) under terms of the [MIT license](https://github.com/fsprojects/FsUnit/blob/master/license.txt)
+* [FuzzDB](https://github.com/fuzzdb-project/fuzzdb) under terms of [CC-BY](https://github.com/fuzzdb-project/fuzzdb)
+* [NUnit](http://www.nunit.org/) under terms of the [MIT license](http://www.nunit.org/nuget/nunit3-license.txt)

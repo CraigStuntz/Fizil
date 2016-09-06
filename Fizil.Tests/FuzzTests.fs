@@ -141,3 +141,11 @@ module FuzzTest =
         let actual = Fuzz.couldBeArith(oldValue, newValue, numBytes)
 
         actual |> should equal expected
+
+
+    [<TestCase(1u, 256u, 2, false)>]
+    [<TestCase(1u, 257u, 2, true)>]
+    let ``couldBeInterest should return expected results``(oldValue: uint32, newValue: uint32, numBytes: int, expected: bool) =
+        let actual = Fuzz.couldBeInterest(oldValue, newValue, numBytes, false)
+
+        actual |> should equal expected

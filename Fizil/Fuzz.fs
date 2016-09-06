@@ -143,6 +143,8 @@ let arith8 : FuzzStrategy =
 let swap16 (value: uint16) =
     (value <<< 8) ||| (value >>> 8)
 
+let swap16s (value: int16) =
+    (value <<< 8) ||| (value >>> 8)
 
 let swap32 (value: uint32) =
     (value <<< 24) 
@@ -273,7 +275,10 @@ let arith32 : FuzzStrategy =
 
 let inline difference a b = if a > b then a - b else b - a
 
+
 let couldBeArith(oldVal: uint32, newVal: uint32, numberOfBytes: uint8) : bool =
+    // implementation is more or less a direct translation of similar
+    // function in afl-fuzz
     if (oldVal = newVal) 
     then true 
     else
@@ -328,6 +333,7 @@ let couldBeArith(oldVal: uint32, newVal: uint32, numberOfBytes: uint8) : bool =
                                     || (difference (swap32 oldVal) (swap32 newVal) <= (uint32 arithMax)))
                 else false
 
+
 let private interesting8 = [|
    -128y         // Overflow signed 8-bit when decremented  
    -1y           //                                         
@@ -344,7 +350,7 @@ let private _interest16 = [|
    -32768s       // Overflow signed 16-bit when decremented 
    -129s         // Overflow signed 8-bit                   
    128s          // Overflow signed 8-bit                   
-   255s          // Overflow unsig 8-bit when incremented   
+   255s          // Overflow unsig 8-bit when incremented   y
    256s          // Overflow unsig 8-bit                    
    512s          // One-off with common buffer size         
    1000s         // One-off with common buffer size         
@@ -378,6 +384,62 @@ let private interesting32 =
     ]
 
 
+let private crossproduct l1 l2 =
+  seq { for el1 in l1 do
+          for el2 in l2 do
+            yield el1, el2 }
+
+
+/// See if insertion of an 
+/// interesting integer is redundant given the insertions done for
+/// shorter numBytes. The last param (checkLE) is set if the caller
+/// already executed LE insertion for current numBytes and wants to see
+/// if BE variant passed in new_val is unique.
+let couldBeInterest(oldVal : uint32, newVal : uint32, numBytes : int, checkLE : bool) : bool =
+    // implementation is more or less a direct translation of similar
+    // function in afl-fuzz
+    if (oldVal = newVal) 
+    then true
+    else
+        // See if one-byte insertions from interesting_8 over oldVal could
+        // produce newVal.  
+        let shifts = [| 0 .. (numBytes - 1) |]
+        let shiftAndInterest8 = crossproduct shifts interesting8
+        let matches (shift: int, interest: sbyte) =
+            let tval = (oldVal &&& ~~~(0xffu <<< (shift * 8))) 
+                       ||| ((uint32 interest) <<< (shift * 8))
+            newVal = tval
+        if shiftAndInterest8 |> Seq.exists matches
+        then true 
+        else  
+            // Bail out unless we're also asked to examine two-byte LE insertions
+            // as a preparation for BE attempts. 
+            if (numBytes = 2) && (not checkLE)
+            then false
+            else
+                // See if two-byte insertions over oldVal could give us newVal.
+                let shifts = [| 0 .. (numBytes - 2) |]
+                let shiftAndInterest16 = crossproduct shifts interesting16
+                let matches (shift: int, interest: int16) =
+                    let tval = (oldVal &&& ~~~(0xffffu <<< (shift * 8)))
+                            ||| ((uint32 interest) <<< (shift * 8))
+                    if newVal = tval
+                    then true 
+                    else
+                        // Continue here only if blen > 2. 
+                        let tval = (oldVal &&& ~~~(0xffffu <<< (shift * 8)))
+                                ||| ((uint32 (swap16s interest)) <<< (shift * 8))
+                        newVal = tval
+                if shiftAndInterest16 |> Seq.exists matches
+                then true
+                else 
+                    if (numBytes = 4 && checkLE) 
+                    then 
+                        // See if four-byte insertions could produce the same result (LE only)
+                        Seq.exists (fun interest -> (uint32 interest) = newVal) interesting32
+                    else false
+
+
 let interest8 : FuzzStrategy =
     fun (bytes: byte[]) ->
         let testCases = seq {
@@ -397,6 +459,39 @@ let interest8 : FuzzStrategy =
             TestCases = testCases
         }
 
+
+let interest16 : FuzzStrategy =
+    fun (bytes: byte[]) ->
+        let testCases = seq {
+            for i = 0 to bytes.Length - 2 do
+                for interesting in interesting16 do 
+                    let origLE = uint16(bytes.[i]) + (uint16(bytes.[i + 1]) * 256us)
+                    if not (couldBeBitflip(uint32(origLE), uint32(interesting))
+                        || couldBeArith(uint32(origLE), uint32(interesting), 2uy)
+                        || couldBeInterest(uint32(origLE), uint32(interesting), 2, false))
+                    then 
+                        let newBytes = Array.copy bytes
+                        newBytes.[i] <- (uint8 interesting)
+                        newBytes.[i + 1] <- (uint8 (interesting/256s))
+                        yield newBytes
+                    let interestingBE = swap16s interesting
+                    if not ((interestingBE = interesting)
+                        || couldBeBitflip(uint32(origLE), uint32(interestingBE))
+                        || couldBeArith(uint32(origLE), uint32(interestingBE), 2uy)
+                        || couldBeInterest(uint32(origLE), uint32(interestingBE), 2, true))
+                    then 
+                        let newBytes = Array.copy bytes
+                        newBytes.[i] <- (uint8 interestingBE)
+                        newBytes.[i + 1] <- (uint8 (interestingBE/256s))
+                        yield newBytes
+        }
+        {
+            Name = "interesting16"
+            TestCasesPerExample = TestCasesPerByte (2 * (interesting16 |> Array.length))
+            TestCases = testCases
+        }
+
+
 /// An ordered list of functions to use when starting with a single piece of 
 /// example data and producing new examples to try
 let private allStrategies = [ 
@@ -411,6 +506,7 @@ let private allStrategies = [
     arith16
     arith32
     interest8
+    interest16
 ]
 
 let private applyStrategy (strategy: FuzzStrategy) (examples: TestCase list) : seq<TestCase> = 

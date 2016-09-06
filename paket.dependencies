@@ -1,7 +1,7 @@
 source https://nuget.org/api/v2
 
 nuget FSharp.Configuration
-nuget FSharp.Core 4.4.0.0
+nuget FSharp.Core redirects:force
 nuget Mono.Cecil
 nuget FSharp.Collections.ParallelSeq
 nuget Newtonsoft.Json

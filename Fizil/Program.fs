@@ -66,6 +66,14 @@ let main argv =
             waitIfDebugging()
             exitCode
         with 
+            |  :? System.AggregateException as aggEx ->  
+                aggEx.InnerExceptions 
+                    |> Seq.map (fun e -> e.Message) 
+                    |> Seq.distinct
+                    |> (String.concat System.Environment.NewLine)
+                    |> Log.error
+                waitIfDebugging()
+                ExitCodes.internalError
             |  ex ->
                 Log.error ex.Message
                 waitIfDebugging()

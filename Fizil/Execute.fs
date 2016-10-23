@@ -6,11 +6,13 @@ open System.Diagnostics
 open System.Linq
 open System.IO
 open FSharp.Collections.ParallelSeq
-open Fizil.Properties
+open Fizil.Instrumentation
 open ExecutionResult
 open Log
 open Project
 open TestCase
+open System.Linq.Expressions
+
 
 [<NoComparison>]
 [<NoEquality>]
@@ -18,6 +20,14 @@ type InputMethod = {
     BeforeStart: Process -> byte[] -> unit
     AfterStart:  Process -> byte[] -> unit
 }
+
+
+[<NoComparison>]
+[<NoEquality>]
+type EntryPoint = 
+| ByteArrayEntryPoint of (byte[] -> TestResult)
+| StringEntryPoint    of (string -> TestResult)
+
 
 let onCommandLine : InputMethod = {
     BeforeStart = fun (proc: Process) (data: byte[])  ->
@@ -32,6 +42,12 @@ let onStandardInput : InputMethod = {
         proc.StandardInput.BaseStream.Write(data, 0, data.Length)
         proc.StandardInput.Close()
 }
+
+
+let (|InProcessSerial|OutOfProcess|) = function
+| "InProcessSerial"   -> InProcessSerial
+| "OutOfProcess"      -> OutOfProcess
+| wrong          -> failwithf "Unexpected Execution Isolation value %s" wrong
 
 
 let private projectInputMethod (project: Project) =
@@ -51,6 +67,7 @@ type private ExecutionState = {
     FindingsFolder: string
     ObservedPaths:  HashSet<string>
 }
+
 
 let initializeTestRun (project: Project) =
     Directory.SetCurrentDirectory(project.Directories.SystemUnderTest)
@@ -80,16 +97,65 @@ let private loadExamples (project: Project) : TestCase list =
         |> List.ofSeq
 
 
-let private checkProperties (propertyCheckers: IPropertyChecker list) (testRun: TestRun) : PropertyCheckResult list =
-    match testRun.ExitCode with
-    | ExitCodes.success -> 
-        propertyCheckers 
-            |> List.collect (fun propertyChecker -> propertyChecker.SuccessfulExecutionProperties |> List.ofSeq) 
-            |> List.map (fun prop -> prop.CheckSuccessfulExecution testRun )
-    | _ -> []
+
+type ByteArrayEntryPointDelegate = delegate of byte[] -> TestResult 
+type StringEntryPointDelegate    = delegate of string -> TestResult 
 
 
-let private executeApplication (inputMethod: InputMethod) (executablePath: string) (propertyCheckers: IPropertyChecker list) (sharedMemoryName: string) (testCase: TestCase) =
+let private tryFindValidFizilEntryPoint(fn: System.Reflection.MethodInfo) : EntryPoint option =
+    let parameters = fn.GetParameters()
+    match fn.IsStatic && parameters.Count() = 1 && fn.ReturnType = typeof<TestResult> with
+    | false -> None
+    | true  ->
+        match parameters.First().ParameterType with 
+        | x when x = typeof<byte[]> ->
+            let del = System.Delegate.CreateDelegate(typeof<ByteArrayEntryPointDelegate>, fn) :?> ByteArrayEntryPointDelegate
+            Some (ByteArrayEntryPoint (fun bytes -> (del.Invoke bytes)))
+        | x when x = typeof<string> ->
+            let del = System.Delegate.CreateDelegate(typeof<StringEntryPointDelegate>, fn) :?> StringEntryPointDelegate
+            Some (StringEntryPoint (fun str -> (del.Invoke str)))
+        | _ -> None
+
+
+let private findInProcessEntryPoint (executablePath: string) : EntryPoint =
+    let assembly = System.Reflection.Assembly.LoadFrom executablePath
+    let fn = 
+        assembly.GetTypes()
+            .SelectMany(fun (t: System.Type) -> t.GetMethods().AsEnumerable())
+            .Where(fun m -> m.GetCustomAttributes(typeof<FizilEntryPointAttribute>, false).Length > 0)
+            .FirstOrDefault()
+    match fn with 
+    | null -> failwith "Using in process fuzzing requires a public method in the target assembly annotated with FizilEntryPointAttribute. No such method was found."
+    | _ ->
+        match tryFindValidFizilEntryPoint fn with
+        | None -> failwith "FizilEntryPoint function must be a static method with a single argument of type string or byte[] and a result of type TestResult"
+        | Some entryPoint -> entryPoint
+
+
+let private executeTestCaseInProcess (entryPoint: EntryPoint) : byte[] -> TestResult =
+    match entryPoint with
+    | ByteArrayEntryPoint fn -> fn
+    | StringEntryPoint fn -> (fun bytes -> bytes |> Convert.toString |> fn)
+    
+
+let private projectInProcessEntryPoint (executablePath : string) =
+    executablePath
+        |> findInProcessEntryPoint
+        |> executeTestCaseInProcess
+
+ 
+let private executeApplicationInProcess (sharedMemoryName: string) (testCase: TestCase) (entryPoint: byte[] -> TestResult) =
+    System.Environment.SetEnvironmentVariable(SharedMemory.environmentVariableName, sharedMemoryName)
+    let result = entryPoint(testCase.Data)
+    {
+        TestCase           = testCase
+        TestResult         = result
+        SharedMemory       = Array.empty
+        NewPathFound       = false
+    }
+
+
+let private executeApplicationOutOfProcess (inputMethod: InputMethod) (executablePath: string) (sharedMemoryName: string) (testCase: TestCase) =
     use proc = new Process()
     proc.StartInfo.FileName               <- executablePath
     inputMethod.BeforeStart proc testCase.Data
@@ -110,25 +176,13 @@ let private executeApplication (inputMethod: InputMethod) (executablePath: strin
     proc.WaitForExit()
     let exitCode = proc.ExitCode
 
-    let testRun = {
-        Input    = testCase.Data
-        ExitCode = exitCode
-        StdErr   = err.ToString()
-        StdOut   = output.ToString()
-    }
-    let propertyViolations = 
-        checkProperties propertyCheckers testRun
-        |> List.filter (fun propertyCheckResult -> not <| propertyCheckResult.Verified )
+    let crashed = exitCode = WinApi.ClrUnhandledExceptionCode
     proc.Close()
     {
         TestCase           = testCase
-        StdErr             = testRun.StdErr
-        StdOut             = testRun.StdOut
-        ExitCode           = testRun.ExitCode
-        Crashed            = testRun.ExitCode = WinApi.ClrUnhandledExceptionCode
+        TestResult         = TestResult(crashed, exitCode, err.ToString(), output.ToString())
         SharedMemory       = Array.empty
         NewPathFound       = false
-        PropertyViolations = propertyViolations
     }
 
 
@@ -143,25 +197,8 @@ let private getHash (hash: System.Security.Cryptography.HashAlgorithm) (bytes: b
         |> toHexString
 
 
-let private getPropertyCheckers() : IPropertyChecker list =
-    [ new Fizil.Test.TestProperties() :> IPropertyChecker ]
-
-
-let private formatPropertyViolations (violations: PropertyCheckResult list) =
-    let header = "Property violations: "
-    let violationMessages = 
-        violations 
-        |> List.map (fun violation -> violation.Message)
-        |> String.concat System.Environment.NewLine
-    sprintf "%s%s%s" header System.Environment.NewLine violationMessages
-
-
-let private hasPropertyViolations (result : Result) = 
-    not <| List.isEmpty result.PropertyViolations
-
-
 let private shouldRecordFinding (result: Result) =
-    result.Crashed && result.NewPathFound && result.TestCase.SourceFile.IsNone
+    result.TestResult.Crashed && result.NewPathFound && result.TestCase.SourceFile.IsNone
 
 
 let private findingsFolderName (project: Project) (state: ExecutionState) =
@@ -202,16 +239,14 @@ let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> =
             | TestComplete result ->
                 let hashed = getHash state.Hash result.SharedMemory
                 let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
-                if (result.Crashed)
+                if (result.TestResult.Crashed)
                 then log.ToFile Standard "Process crashed!"
                 if (newPathFound)
                 then log.ToFile Verbose "New path found"
-                log.ToFile Verbose (sprintf "StdOut: %s"    result.StdOut)
-                log.ToFile Verbose (sprintf "StdErr: %s"    result.StdErr)
-                log.ToFile Verbose (sprintf "Exit code: %i" result.ExitCode)
+                log.ToFile Verbose (sprintf "StdOut: %s"    result.TestResult.StdOut)
+                log.ToFile Verbose (sprintf "StdErr: %s"    result.TestResult.StdErr)
+                log.ToFile Verbose (sprintf "Exit code: %i" result.TestResult.ExitCode)
                 Display.postResult (Display.UpdateDisplay {result with NewPathFound = newPathFound })
-                if   (result |> hasPropertyViolations)
-                then log.ToFile Verbose (result.PropertyViolations |> formatPropertyViolations)
                 let findingName = maybeRecordFinding project state result
                 let newState = { state with FindingName = findingName }
                 return! loop newState
@@ -243,11 +278,15 @@ let private getSharedMemoryName() =
     sprintf "Fizil-shared-memory-%d" (System.Threading.Interlocked.Increment(executionId))
 
 
-let private executeApplicationTestCase (log: Logger) (inputMethod: InputMethod) (executablePath) (agent: MailboxProcessor<Message>) (testCase: TestCase) =
+let private executeApplicationTestCase (project: Project) (log: Logger) (inputMethod: InputMethod) (executablePath) (agent: MailboxProcessor<Message>) (testCase: TestCase) =
     log.ToFile Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
     let sharedMemoryName = getSharedMemoryName()
     use sharedMemory = SharedMemory.create(sharedMemoryName)
-    let result = executeApplication inputMethod executablePath (getPropertyCheckers()) sharedMemoryName testCase
+    let result = 
+        match project.Execute.Isolation with
+        | InProcessSerial   -> 
+            executeApplicationInProcess sharedMemoryName testCase (projectInProcessEntryPoint executablePath)
+        | OutOfProcess      -> executeApplicationOutOfProcess inputMethod executablePath sharedMemoryName testCase
     let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
     let resultWithSharedMemory = { result with SharedMemory = finalSharedMemory }
     agent.Post(TestComplete resultWithSharedMemory)
@@ -274,8 +313,12 @@ let allTests (log: Logger) (project: Project) =
             })
         let agent = agent project log
 
+        let iter =
+            match project.Execute.Isolation with 
+            | InProcessSerial -> Seq.iter  // Stuff which can't be done in parallel
+            | OutOfProcess    -> PSeq.iter // Stuff which  can  be done in parallel
         testCases
-            |> PSeq.iter (executeApplicationTestCase log inputMethod executablePath agent)
+            |> iter (executeApplicationTestCase project log inputMethod executablePath agent)
         // Tell agent we're done, dispose stuff it holds.
         let _finalState = agent.PostAndReply(fun replyChannel -> AllTestsComplete replyChannel)
         ExitCodes.success

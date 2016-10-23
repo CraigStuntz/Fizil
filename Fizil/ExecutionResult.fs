@@ -1,19 +1,15 @@
 ﻿module ExecutionResult
 
-open Fizil.Properties
+open Fizil.Instrumentation
 
 [<NoComparison>]
 type Result = 
     {
         TestCase:           TestCase.TestCase
-        StdErr:             string
-        StdOut:             string
-        ExitCode:           int
-        Crashed:            bool
-        PropertyViolations: PropertyCheckResult list
+        TestResult:         TestResult
         SharedMemory:       byte []
         NewPathFound:       bool
     }
     member this.HasStdErrOutput =
-        System.String.IsNullOrWhiteSpace(this.StdOut)
+        System.String.IsNullOrWhiteSpace(this.TestResult.StdOut)
 

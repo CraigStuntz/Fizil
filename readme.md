@@ -9,12 +9,11 @@ In the meantime, use [AFL](http://lcamtuf.coredump.cx/afl/) if you want to do re
 |----------------------------------------|-----------------|--------------------|
 | Runs on Windows                        | Yep!            | No, but [there's a fork](https://github.com/ivanfratric/winafl) |
 | Runs on Unix                           | Probably not    | Yep!               |
-| Fast                                   | No              | Yep!               |
+| Fast                                   | Not so much     | Yep!               |
 | Instrumentation guided                 | Soon?           | Yep!               |
 | Automatic instrumentation              | .NET assemblies | Clang, GCC, Python |
 | Rich suite of fuzzing strategies       | Not yet!        | Yes!               |
 | Automatically disables crash reporting | Yep!            | Nope               |
-| Property based testing                 | In progress     | Don't think so?    |
 | Rich tooling                           | No              | Yes                |
 | Proven track record                    | No              | Yes                |
 | Stable                                 | No way          | Yes                |

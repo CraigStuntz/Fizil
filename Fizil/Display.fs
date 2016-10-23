@@ -56,14 +56,14 @@ type private Status =
                 ElapsedTime         = elapsedTime
                 StageName           = stageName
                 Executions          = executions
-                Crashes             = this.Crashes          + (if result.Crashed       then 1UL else 0UL)
-                NonZeroExitCodes    = this.NonZeroExitCodes + (if result.ExitCode <> 0 then 1UL else 0UL)
+                Crashes             = this.Crashes          + (if result.TestResult.Crashed       then 1UL else 0UL)
+                NonZeroExitCodes    = this.NonZeroExitCodes + (if result.TestResult.ExitCode <> 0 then 1UL else 0UL)
                 Paths               = this.Paths            + (if result.NewPathFound  then 1UL else 0UL)
                 ExecutionsPerSecond = executionsPerSecond
                 LastCrash           = 
-                    match result.Crashed, result.HasStdErrOutput with
-                    | true, true  -> Some result.StdErr
-                    | true, false -> Some result.StdOut
+                    match result.TestResult.Crashed, result.HasStdErrOutput with
+                    | true, true  -> Some result.TestResult.StdErr
+                    | true, false -> Some result.TestResult.StdOut
                     | false, _    -> this.LastCrash
                 LastTitleRedraw     = lastTitleRedraw
                 ShouldRedrawTitles  = shouldRedrawTitles 

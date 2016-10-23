@@ -56,7 +56,6 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Convert.fs" />
-    <Compile Include="TestCase.fs" />
     <Compile Include="ExecutionResult.fs" />
     <Compile Include="Log.fs" />
     <Compile Include="WinApi.fs" />
@@ -66,7 +65,6 @@
     <Compile Include="CilInstrument.fs" />
     <Compile Include="Instrument.fs" />
     <Compile Include="ExitCodes.fs" />
-    <Compile Include="TestProperty.fs" />
     <Compile Include="Display.fs" />
     <Compile Include="Execute.fs" />
     <Compile Include="Program.fs" />
@@ -78,11 +76,6 @@
     <ProjectReference Include="..\Fizil.Instrumentation\Fizil.Instrumentation.fsproj">
       <Name>Fizil.Instrumentation</Name>
       <Project>{5aba511e-4e97-4df9-902f-48efa4090d92}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\Fizil.Properties\Fizil.Properties.fsproj">
-      <Name>Fizil.Properties</Name>
-      <Project>{9dd809a9-5740-4aa2-ae05-f4f3aa31a5d2}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

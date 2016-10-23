@@ -66,8 +66,8 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="FuzzTests.fs" />
-    <None Include="paket.references" />
     <Content Include="App.config" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -77,6 +77,11 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\Fizil.Instrumentation\Fizil.Instrumentation.fsproj">
+      <Name>Fizil.Instrumentation</Name>
+      <Project>{5aba511e-4e97-4df9-902f-48efa4090d92}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\Fizil\Fizil.fsproj">
       <Name>Fizil</Name>
       <Project>{3102e28f-605f-467b-a861-f916ba175fe9}</Project>

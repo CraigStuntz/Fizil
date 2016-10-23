@@ -27,8 +27,14 @@ let private insertTraceInstruction(ilProcessor: ILProcessor, before: Instruction
     ilProcessor.InsertAfter (ldArg, callTrace)
 
 
+let private isEntryPoint (definition: MethodDefinition) =
+    definition = definition.Module.EntryPoint
+        || (definition.CustomAttributes
+            |> Seq.exists (fun ca -> ca.AttributeType.FullName = typeof<FizilEntryPointAttribute>.FullName))
+    
+
 let private instrumentMethod (state: InstrumentState) (definition: MethodDefinition) = 
-    if definition <> definition.Module.EntryPoint // entry point is already instrumented
+    if not (definition |> isEntryPoint) // entry point is already instrumented
     then
         let ilProcessor       = definition.Body.GetILProcessor()
         let firstInstruction  = definition.Body.Instructions.[0]
@@ -110,16 +116,16 @@ let private instrumentFieldAttributes : FieldAttributes =
     ||| FieldAttributes.Public
 
 
-let private instrumentEntryPoint(assembly: AssemblyDefinition) =
-    let body               = assembly.EntryPoint.Body
+let private instrumentEntryPoint(entryPoint: MethodDefinition) =
+    let body               = entryPoint.Body
     body.SimplifyMacros()
     let ilProcessor       = body.GetILProcessor()
-    let closeMethodRef    = assembly.EntryPoint.Module.Import(typeof<Instrument>.GetMethod(Instrument.CloseMethodName))
+    let closeMethodRef    = entryPoint.Module.Import(typeof<Instrument>.GetMethod(Instrument.CloseMethodName))
     let callClose         = ilProcessor.Create(OpCodes.Call, closeMethodRef)
     let existingFirstInst = body.Instructions.First()
-    let newExitInsts      = convertRetsToLeaves(assembly.EntryPoint, ilProcessor)
+    let newExitInsts      = convertRetsToLeaves(entryPoint, ilProcessor)
     // before try
-    let openMethodRef    = assembly.EntryPoint.Module.Import(typeof<Instrument>.GetMethod(Instrument.OpenMethodName))
+    let openMethodRef    = entryPoint.Module.Import(typeof<Instrument>.GetMethod(Instrument.OpenMethodName))
     ilProcessor.InsertBefore(existingFirstInst, ilProcessor.Create(OpCodes.Call, openMethodRef))
     // try block here
     //    ... existing code
@@ -138,20 +144,23 @@ let private instrumentEntryPoint(assembly: AssemblyDefinition) =
 
 let instrumentExecutable (assemblyFilename: string, outputFileName: string) =
     let assembly     = AssemblyDefinition.ReadAssembly assemblyFilename
-    if assembly.EntryPoint = null 
-    then 
-        failwith "TODO: Handle this case!"
-    else 
-        let instrument   = instrumentEntryPoint assembly
-        let trace        = assembly.MainModule.Import traceMethod
-        let initialState = { Random = Random(); Trace = trace }
-        let mainModuleTypes = assembly.MainModule.Types
-        assembly.MainModule.AssemblyReferences |> Seq.iter (fun reference ->
-            reference.PublicKeyToken <- null
-        )
-        mainModuleTypes |> Seq.iter (instrumentType initialState)
-        assembly.Write outputFileName
-        instrument
+    if assembly.EntryPoint <> null 
+    then instrumentEntryPoint assembly.EntryPoint
+    let fizilEntryPoints = 
+        assembly.Modules
+        |> Seq.collect (fun assemblyModule -> assemblyModule.Types)
+        |> Seq.collect (fun moduleType -> moduleType.Methods)
+        |> Seq.filter (fun methodDef -> 
+            methodDef.CustomAttributes.Any(fun customAttr -> customAttr.AttributeType.FullName = typeof<FizilEntryPointAttribute>.FullName))
+    fizilEntryPoints |> Seq.iter instrumentEntryPoint
+    let trace        = assembly.MainModule.Import traceMethod
+    let initialState = { Random = Random(); Trace = trace }
+    let mainModuleTypes = assembly.MainModule.Types
+    assembly.MainModule.AssemblyReferences |> Seq.iter (fun reference ->
+        reference.PublicKeyToken <- null
+    )
+    mainModuleTypes |> Seq.iter (instrumentType initialState)
+    assembly.Write outputFileName
 
 
 let removeStrongName (assemblyDefinition : AssemblyDefinition) =

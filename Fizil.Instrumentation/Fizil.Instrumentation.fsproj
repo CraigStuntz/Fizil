@@ -56,6 +56,9 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="SharedMemory.fs" />
     <Compile Include="Instrument.fs" />
+    <Compile Include="FizilEntryPoint.fs" />
+    <Compile Include="TestResult.fs" />
+    <Compile Include="TestCase.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

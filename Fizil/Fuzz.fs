@@ -495,7 +495,6 @@ let interest16 : FuzzStrategy =
 /// An ordered list of functions to use when starting with a single piece of 
 /// example data and producing new examples to try
 let private allStrategies = [ 
-    useOriginalExample
     bitFlip 1
     bitFlip 2
     bitFlip 4
@@ -509,17 +508,19 @@ let private allStrategies = [
     interest16
 ]
 
-let private applyStrategy (strategy: FuzzStrategy) (examples: TestCase list) : seq<TestCase> = 
+let private applyStrategy (strategy: FuzzStrategy) (examples: TestCase list) (getSourceFile: TestCase -> string option) : seq<TestCase> = 
     seq {
         for example in examples do
             let stage = strategy(example.Data)
             for input in stage.TestCases do
-                yield { example with Data = input; SourceFile = None; Stage = stage }
+                yield { example with Data = input; SourceFile = getSourceFile example; Stage = stage }
     }
 
 
 let all (examples: TestCase list) : seq<TestCase> =     
     seq {
+        yield applyStrategy useOriginalExample examples (fun example -> example.SourceFile)
         for strategy in allStrategies do
-            yield applyStrategy strategy examples
+            // fuzzed input doesn't come directly from a file, so return None for source file
+            yield applyStrategy strategy examples (fun _ -> None)
     } |> Seq.collect id

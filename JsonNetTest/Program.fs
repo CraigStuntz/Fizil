@@ -1,6 +1,6 @@
 ﻿open Newtonsoft.Json
 open System.Collections.Generic
-
+open Fizil.Instrumentation
 
 type Result<'a> = 
     | Success of 'a
@@ -28,23 +28,37 @@ let parseJson (stdin: string) : Result<Dictionary<System.String, obj>> =
 let stringify (ob: obj) : string =
     JsonConvert.SerializeObject(ob)
 
+
+let private testJsonNet (maybeJson: string) : TestResult =
+    match maybeJson with 
+    | "" -> TestResult(false, 1, (sprintf "Expected JSON; found %A" maybeJson), "")
+    | _ ->
+        try
+        match maybeJson |> parseJson with
+            | Success dictionary ->
+                dictionary 
+                    |> stringify
+                    |> ignore
+                TestResult(false, 0, "", "")
+            | Error message -> TestResult(false, 1, (sprintf "Error parsing JSON: %s" message), "")
+        with
+        | ex -> TestResult.UnhandledException(ex.Message)
+
+
+[<FizilEntryPoint>]
+let public test (maybeJson: string) : TestResult =
+    testJsonNet maybeJson
+
+
 [<EntryPoint>]
 let main argv = 
     use stdIn = System.Console.OpenStandardInput()
     use streamReader = new System.IO.StreamReader(stdIn)
     let json = streamReader.ReadToEnd()
-    match json with 
-    | "" -> 
-        eprintfn "Expected JSON; found %A" argv
-        1 // error if argv count <> 1
-    | _ ->
-        match json |> parseJson with
-        | Success dictionary ->
-            dictionary 
-                |> stringify
-                |> ignore
-            0 // return an integer exit code
-        | Error message ->
-            eprintfn "Error parsing JSON: %s" message
-            1
+    let result = testJsonNet json
+    if not (System.String.IsNullOrEmpty result.StdErr)
+    then eprintfn "%s" result.StdErr
+    if not (System.String.IsNullOrEmpty result.StdOut)
+    then printfn "%s" result.StdOut
+    result.ExitCode
 

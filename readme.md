@@ -23,7 +23,7 @@ In the meantime, use [AFL](http://lcamtuf.coredump.cx/afl/) if you want to do re
 1. Clone repo, `cd` into root (solution) directory
 2. Restore packages (only needed first time)
   1. `./.paket/paket.bootstrapper.exe` 
-  2. `./.paket/paket.exe install`
+  2. `./.paket/paket.exe install --redirects`
 3. Build (in VS or from the command line just type `msbuild` if it's in your path)
 4. Init demo project (only needed first time). Use `--init`. Two ways you can do this:
   1. In VS, right click Fizil project, Properties, Debug, add `--init` to Command line arguments
@@ -53,5 +53,7 @@ Fizil depends on:
 * [FSharp.Collections.ParallelSeq](http://fsprojects.github.io/FSharp.Collections.ParallelSeq/) under terms of the [Apache license 2.0](https://github.com/fsprojects/FSharp.Collections.ParallelSeq/blob/master/LICENSE.txt)
 * [FSharp.Configuration](http://fsprojects.github.io/FSharp.Configuration/) under terms of the [Apache License](https://github.com/fsprojects/FSharp.Configuration/blob/master/LICENSE.txt)
 * [FsUnit](http://fsprojects.github.io/FsUnit/) under terms of the [MIT license](https://github.com/fsprojects/FsUnit/blob/master/license.txt)
-* [FuzzDB](https://github.com/fuzzdb-project/fuzzdb) under terms of [CC-BY](https://github.com/fuzzdb-project/fuzzdb)
+* Data from [FuzzDB](https://github.com/fuzzdb-project/fuzzdb) under terms of [CC-BY](https://github.com/fuzzdb-project/fuzzdb)
+* Data from [JSONTestSute](https://github.com/nst/JSONTestSuite) under terms of the [MIT license](https://github.com/nst/JSONTestSuite/blob/master/LICENSE)
 * [NUnit](http://www.nunit.org/) under terms of the [MIT license](http://www.nunit.org/nuget/nunit3-license.txt)
+* [STJSON](https://github.com/nst/STJSON) under terms of the [MIT license](https://github.com/nst/STJSON/blob/master/LICENSE)

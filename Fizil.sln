@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil", "Fizil\Fizil.fsproj", "{3102E28F-605F-467B-A861-F916BA175FE9}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -21,11 +21,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil.Instrumentation", "Fizil.Instrumentation\Fizil.Instrumentation.fsproj", "{5ABA511E-4E97-4DF9-902F-48EFA4090D92}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil.Properties", "Fizil.Properties\Fizil.Properties.fsproj", "{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}"
-EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "JsonNetTest", "JsonNetTest\JsonNetTest.fsproj", "{EA745DB3-E011-461B-BFBB-77FE0C48D718}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Fizil.Tests", "Fizil.Tests\Fizil.Tests.fsproj", "{A907477C-1185-42B0-821B-8619D035A71C}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "LinesToFiles", "LinesToFiles\LinesToFiles.fsproj", "{A89110FC-34BB-4A74-BC80-8CC2BF9E234D}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "StJson", "StJson\StJson.fsproj", "{8671BFBC-EE11-44FB-A506-274C1AA65B3E}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "StJson.Tests", "StJson.Tests\StJson.Tests.fsproj", "{08C3CDB2-3FEE-439C-BA37-D168FEEE351F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,10 +49,6 @@ Global
 		{5ABA511E-4E97-4DF9-902F-48EFA4090D92}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5ABA511E-4E97-4DF9-902F-48EFA4090D92}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5ABA511E-4E97-4DF9-902F-48EFA4090D92}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9DD809A9-5740-4AA2-AE05-F4F3AA31A5D2}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EA745DB3-E011-461B-BFBB-77FE0C48D718}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -57,6 +57,18 @@ Global
 		{A907477C-1185-42B0-821B-8619D035A71C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A907477C-1185-42B0-821B-8619D035A71C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A907477C-1185-42B0-821B-8619D035A71C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A89110FC-34BB-4A74-BC80-8CC2BF9E234D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A89110FC-34BB-4A74-BC80-8CC2BF9E234D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A89110FC-34BB-4A74-BC80-8CC2BF9E234D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A89110FC-34BB-4A74-BC80-8CC2BF9E234D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8671BFBC-EE11-44FB-A506-274C1AA65B3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8671BFBC-EE11-44FB-A506-274C1AA65B3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8671BFBC-EE11-44FB-A506-274C1AA65B3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8671BFBC-EE11-44FB-A506-274C1AA65B3E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08C3CDB2-3FEE-439C-BA37-D168FEEE351F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08C3CDB2-3FEE-439C-BA37-D168FEEE351F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08C3CDB2-3FEE-439C-BA37-D168FEEE351F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08C3CDB2-3FEE-439C-BA37-D168FEEE351F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

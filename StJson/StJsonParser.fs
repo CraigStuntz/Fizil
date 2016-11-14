@@ -94,7 +94,6 @@ type JSONError =
 | FoundBOMForUnsupportdEncodingUTF32LE
 
 
-
 type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) = 
     let maxParserDepth = defaultArg maxParserDepth 500
     let options = defaultArg options Options.none
@@ -104,7 +103,7 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
     let REPLACEMENT_STRING = "\u{FFFD}"
     let utf8Encoding = System.Text.UTF8Encoding(false, true)
 
-    let throw(errorType: JSONError) = failwith <| sprintf "%A" errorType
+    let throw(errorType: JSONError) = invalidOp <| sprintf "%A" errorType
 
     let toString(bytes: byte list) : string =
         let numChars = (bytes.Length / sizeof<char>) + (bytes.Length % sizeof<char>)
@@ -376,10 +375,14 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
                             let acceptableBytes = 
                                 readAndMoveAcceptableBytes() 
                                 |> Array.ofList 
-                            let s = utf8Encoding.GetString(acceptableBytes)   
-                            match s with 
-                            | "" -> throw (JSONError.ExpectedAcceptableCodepointOrEscapedSequence i)   
-                            | _ -> s + loop()
+                            try
+                                let s = utf8Encoding.GetString(acceptableBytes)   
+                                match s with 
+                                | "" -> throw (JSONError.ExpectedAcceptableCodepointOrEscapedSequence i)   
+                                | _ -> s + loop()
+                            with
+                            | :? System.Text.DecoderFallbackException -> 
+                                throw (JSONError.ExpectedAcceptableCodepointOrEscapedSequence i)
             loop()
         
            
@@ -455,23 +458,26 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
         do this.throwIfStartsWithUTF16BOM()
         do this.throwIfStartsWithUTF32BOM()
         
-        let parseJson() = 
-            let o = this.readValue()       
-            do this.bypassWhitespace()
-            match this.read() with
-            | None -> o
-            | Some _ -> throw (JSONError.ExtraData i)
-        // skip UTF-8 BOM if present (EF BB BF)
-        if this.readAndMove(ASCIIByte.utf8BOMByte1) 
-        then
-            if this.readAndMove(ASCIIByte.utf8BOMByte2)
-            then 
-                if this.readAndMove(ASCIIByte.utf8BOMByte3)
-                then
-                    parseJson()
+        try
+            let parseJson() = 
+                let o = this.readValue()       
+                do this.bypassWhitespace()
+                match this.read() with
+                | None -> o
+                | Some _ -> throw (JSONError.ExtraData i)
+            // skip UTF-8 BOM if present (EF BB BF)
+            if this.readAndMove(ASCIIByte.utf8BOMByte1) 
+            then
+                if this.readAndMove(ASCIIByte.utf8BOMByte2)
+                then 
+                    if this.readAndMove(ASCIIByte.utf8BOMByte3)
+                    then
+                        parseJson()
+                    else None
                 else None
-            else None
-        else parseJson()
+            else parseJson()
+        with
+        | :? System.InvalidOperationException as ex -> None
                 
 
     member this.readValue() : JsonValue option =

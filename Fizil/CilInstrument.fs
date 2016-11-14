@@ -142,7 +142,7 @@ let private instrumentEntryPoint(entryPoint: MethodDefinition) =
     body.OptimizeMacros()
 
 
-let instrumentExecutable (assemblyFilename: string, outputFileName: string) =
+let instrumentExecutable (assemblyFilename: string, assembliesToInstrument: Set<string>, outputFileName: string) =
     let assembly     = AssemblyDefinition.ReadAssembly assemblyFilename
     if assembly.EntryPoint <> null 
     then instrumentEntryPoint assembly.EntryPoint
@@ -156,14 +156,16 @@ let instrumentExecutable (assemblyFilename: string, outputFileName: string) =
     let trace        = assembly.MainModule.Import traceMethod
     let initialState = { Random = Random(); Trace = trace }
     let mainModuleTypes = assembly.MainModule.Types
-    assembly.MainModule.AssemblyReferences |> Seq.iter (fun reference ->
-        reference.PublicKeyToken <- null
-    )
+    assembly.MainModule.AssemblyReferences 
+        |> Seq.filter (fun reference -> Set.contains reference.Name assembliesToInstrument)
+        |> Seq.iter (fun reference ->
+            reference.PublicKeyToken <- null
+        )
     mainModuleTypes |> Seq.iter (instrumentType initialState)
     assembly.Write outputFileName
 
 
-let removeStrongName (assemblyDefinition : AssemblyDefinition) =
+let private removeStrongName (assemblyDefinition : AssemblyDefinition) =
     let name = assemblyDefinition.Name;
     name.HasPublicKey <- false;
     name.PublicKey <- Array.empty;

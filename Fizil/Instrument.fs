@@ -29,10 +29,11 @@ let project (project: Project, log: Logger) =
     log.ToFile Standard "Starting instrumentation..."
     let files = systemUnderTestFiles project
     let instrument = filesToInstrument(files, project)
+    let instrumentAssemblies = Set.map (fun fileName -> System.IO.Path.GetFileNameWithoutExtension fileName) instrument
     log.ToFile Standard (sprintf "Instrumenting %s" project.Execute.Executable)
     let executableInputFilename = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
     let executableOutputFilename = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
-    CilInstrument.instrumentExecutable(executableInputFilename, executableOutputFilename)
+    CilInstrument.instrumentExecutable(executableInputFilename, instrumentAssemblies, executableOutputFilename)
     log.ToFile Standard "Instrumenting dependencies..."
     instrument
         |> Set.remove project.Execute.Executable

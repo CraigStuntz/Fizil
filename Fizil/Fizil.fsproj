@@ -28,7 +28,7 @@
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>
     </StartWorkingDirectory>
-    <StartArguments>--verbose ..\..\..\Demo\project.yaml</StartArguments>
+    <StartArguments>--instrument --fuzz --verbose ..\..\..\Demo\project.yaml</StartArguments>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <OtherFlags>--warnon:1182</OtherFlags>

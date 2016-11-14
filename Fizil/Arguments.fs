@@ -12,7 +12,7 @@ type Operation =
 
 
 type Arguments = {
-    Operation:       Operation
+    Operations:      Operation list
     ProjectFileName: string
     Verbosity:       Verbosity
 }
@@ -20,7 +20,7 @@ type Arguments = {
 
 let defaultArguments = 
     {
-        Operation       = ExecuteTests
+        Operations       = []
         ProjectFileName = "project.yaml"
         Verbosity       = Standard
     }
@@ -31,6 +31,7 @@ let helpString () =
   --help       Display this help message
   --init       Create working directories
   --instrument Instrument binaries in system under test folder
+  --fuzz       Execute tests by fuzzing examples
   --quiet      Suppress all non-error command line output
   --verbose    Display additional status information on command line output
   --version    Report version
@@ -49,21 +50,26 @@ let rec private parseArgument (accum: Arguments) (argv: string list) =
     | [] 
         -> accum 
     | "--init"   :: rest 
-        -> parseArgument { accum with Operation = Initialize }    rest
+        -> parseArgument { accum with Operations = Initialize :: accum.Operations }      rest
+    | "--fuzz"   :: rest 
+        -> parseArgument { accum with Operations = accum.Operations @ [ ExecuteTests ] } rest
     | "--instrument"   :: rest 
-        -> parseArgument { accum with Operation = Instrument }    rest
+        -> parseArgument { accum with Operations = Instrument :: accum.Operations }      rest
     | "--quiet"   :: rest 
-        -> parseArgument { accum with Verbosity = Quiet }         rest
+        -> parseArgument { accum with Verbosity = Quiet }                                rest
     | "--verbose" :: rest 
-        -> parseArgument { accum with Verbosity = Verbose }       rest
+        -> parseArgument { accum with Verbosity = Verbose }                              rest
     | "--version" :: rest 
-        -> parseArgument { accum with Operation = ReportVersion } rest
+        -> parseArgument { accum with Operations = ReportVersion :: accum.Operations }   rest
     | ProjectFile filename :: rest 
-        -> parseArgument { accum with ProjectFileName = filename } rest    
+        -> parseArgument { accum with ProjectFileName = filename }                       rest    
     | "--help"    :: rest 
     | _           :: rest
-        -> parseArgument { accum with Operation = ShowHelp }      rest
+        -> parseArgument { accum with Operations = ShowHelp :: accum.Operations }        rest
 
 
 let parse (argv: string[]) = 
-    parseArgument defaultArguments (argv |> List.ofArray)
+     let result = parseArgument defaultArguments (argv |> List.ofArray)
+     match result.Operations with
+     | [] -> { result with Operations = [ ExecuteTests ] } // default operation
+     | _  -> result

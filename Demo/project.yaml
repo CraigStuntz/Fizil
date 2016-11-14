@@ -14,9 +14,11 @@ Instrument:
         - "*.dll"
     Exclude:
         - Fizil.Properties.dll
+        - FSharp.Core.dll
         - Mono.Cecil.dll
         - Mono.Cecil.Rocks.dll
         - TinyTest.vshost.exe
+        - StJson.exe
 
 TextFileExtensions: 
     - .txt

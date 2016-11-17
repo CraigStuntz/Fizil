@@ -62,9 +62,10 @@ type private Status =
                 ExecutionsPerSecond = executionsPerSecond
                 LastCrash           = 
                     match result.TestResult.Crashed, result.HasStdErrOutput with
-                    | true, true  -> Some result.TestResult.StdErr
-                    | true, false -> Some result.TestResult.StdOut
-                    | false, _    -> this.LastCrash
+                    | true,  true  -> Some result.TestResult.StdErr
+                    | false, true  -> Some result.TestResult.StdErr
+                    | true,  false -> Some result.TestResult.StdOut
+                    | false, false -> this.LastCrash
                 LastTitleRedraw     = lastTitleRedraw
                 ShouldRedrawTitles  = shouldRedrawTitles 
             }

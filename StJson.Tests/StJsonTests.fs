@@ -9,16 +9,16 @@ open StJson
 module StJsonTests =
 
     type ParseResult =
-    | Parsed of JsonValue
-    | Threw of System.Exception
-    | CouldNotParse 
+    | Parsed        of JsonValue
+    | Threw         of System.Exception
+    | CouldNotParse of string
 
     let parseData(data: byte[]) : ParseResult =        
         let p = StJsonParser(data |> List.ofArray)
         try 
             match p.parse() with
-            | Some jv -> Parsed jv
-            | None    -> CouldNotParse
+            | Success jv          -> Parsed jv
+            | SyntaxError message -> CouldNotParse message
         with
         | ex -> 
             Threw ex
@@ -55,10 +55,10 @@ module StJsonTests =
     let testFile(data: byte[], fileName: string, shouldParse: bool option) =
         let pr = parseData(data)
         match pr, shouldParse with
-        | Threw ex,      Some true  -> Assert.Fail(sprintf "SHOULD_HAVE_PASSED\t%s, got %s"   fileName ex.Message)
-        | CouldNotParse, Some true  -> Assert.Fail(sprintf "SHOULD_HAVE_PASSED\t%s, got None" fileName)
-        | Parsed _,      Some false -> Assert.Fail(sprintf "SHOULD_HAVE_FAILED\t\%s" fileName)
-        | _                         -> ()
+        | Threw ex,              Some true  -> Assert.Fail(sprintf "SHOULD_HAVE_PASSED\t%s, got %s" fileName ex.Message)
+        | CouldNotParse message, Some true  -> Assert.Fail(sprintf "SHOULD_HAVE_PASSED\t%s, got %s" fileName message)
+        | Parsed _,              Some false -> Assert.Fail(sprintf "SHOULD_HAVE_FAILED\t\%s" fileName)
+        | _                                 -> ()
 
 
     [<Test>]    

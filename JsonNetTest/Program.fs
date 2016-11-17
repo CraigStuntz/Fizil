@@ -19,10 +19,10 @@ let readAllFromStdIn() : string =
     loop (System.Console.ReadLine())
     
 
-let parseJson (bytes: byte[]) : ParseResult =
-    let jsonString = bytes |> System.Text.Encoding.UTF8.GetString
+let parseJson (maybeJson: (string * byte[])) : ParseResult =
+    let str, bytes = maybeJson
     let jsonNetResult = 
-        try JsonConvert.DeserializeObject<Dictionary<System.String, obj>>(jsonString) |> ignore
+        try JsonConvert.DeserializeObject<Dictionary<System.String, obj>>(str) |> ignore
             Success
         with 
         | :? JsonReaderException        as jre -> jre.Message |> Error
@@ -35,8 +35,8 @@ let parseJson (bytes: byte[]) : ParseResult =
         try
             let parser = StJson.StJsonParser(bytes |> List.ofArray, 500, StJson.Options.none)
             match parser.parse() with
-                | Some _ -> Success
-                | None   -> Error "No object returned from StJsonParser"
+                | StJson.JsonParseResult.Success               _ -> Success
+                | StJson.JsonParseResult.SyntaxError message   -> Error message
         with
         | ex -> ex.Message + "\r\n" + ex.StackTrace |> Error
     {
@@ -48,19 +48,26 @@ let stringify (ob: obj) : string =
     JsonConvert.SerializeObject(ob)
 
 
+let private removeUtf16ByteOrderMark(bytes: byte[]) : (string * byte[]) =
+    use stream = new System.IO.MemoryStream(bytes)
+    use reader = new System.IO.StreamReader(stream, System.Text.UTF8Encoding.UTF8, true)
+    let text = reader.ReadToEnd()
+    text, System.Text.Encoding.UTF8.GetBytes(text)
+
+
 let private compareParsers (maybeJson: byte[]) : TestResult =
     match maybeJson with 
     | [||] -> TestResult(false, 1, (sprintf "Expected JSON; found %A" maybeJson), "")
     | _ ->
         try
-        match maybeJson |> parseJson with
+        match maybeJson |> removeUtf16ByteOrderMark |> parseJson with
             | { JsonNet = Success; StJson = Success } 
             | { JsonNet = Error _; StJson = Error _ } -> 
                 TestResult(false, 0, "", "")
             | { JsonNet = Success; StJson = Error message } -> 
                 TestResult(false, 1, (sprintf "JsonNet returned Success; StJson returned error: %s" message), "") 
             | { JsonNet = Error message; StJson = Success } -> 
-                TestResult(false, 1, (sprintf "JsonNet returned Success; StJson returned error: %s" message), "") 
+                TestResult(false, 1, (sprintf "StJson returned Success; JsonNet returned error: %s" message), "") 
         with
         | ex -> TestResult.UnhandledException(ex.Message)
 
@@ -81,8 +88,8 @@ let rec private readBytesFromStream(stream: System.IO.BinaryReader) =
 let main argv = 
     use stdIn = System.Console.OpenStandardInput()
     use streamReader = new System.IO.BinaryReader(stdIn)
-    let json = readBytesFromStream streamReader
-    let result = compareParsers json
+    let maybeJson = readBytesFromStream streamReader
+    let result = compareParsers maybeJson
     if not (System.String.IsNullOrEmpty result.StdErr)
     then eprintfn "%s" result.StdErr
     if not (System.String.IsNullOrEmpty result.StdOut)

@@ -24,6 +24,11 @@ type JsonValue =
 | JsonObject of Map<string, JsonValue>
 
 
+type JsonParseResult =
+| Success of JsonValue
+| SyntaxError of string
+
+
 type ASCIIByte =
 | objectOpen = 0x7Buy     // {
 | tab = 0x09uy            // \t
@@ -212,19 +217,17 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
             [||]
         | false ->     
             let rec readArrayValues() : JsonValue list =
-                match this.readValue() with
-                | Some jsonValue -> 
+                let jsonValue = this.readValue()
+                do this.bypassWhitespace()
+                match this.readAndMove(ASCIIByte.comma) with
+                | true ->
                     do this.bypassWhitespace()
-                    match this.readAndMove(ASCIIByte.comma) with
-                    | true ->
-                        do this.bypassWhitespace()
-                        jsonValue :: readArrayValues()
-                    | false ->
-                        do this.bypassWhitespace()
-                        match this.readAndMove(ASCIIByte.arrayClose) with
-                        | true  -> []
-                        | false -> throw (JSONError.ExpectedArrayClose i)
-                | None -> throw (JSONError.ExpectedValue i)
+                    jsonValue :: readArrayValues()
+                | false ->
+                    do this.bypassWhitespace()
+                    match this.readAndMove(ASCIIByte.arrayClose) with
+                    | true  -> []
+                    | false -> throw (JSONError.ExpectedArrayClose i)
             let values = readArrayValues() |> List.rev |> Array.ofList
             parserDepth <- parserDepth - 1
             values
@@ -408,16 +411,14 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
                     match this.readAndMove(ASCIIByte.colon) with
                     | false -> throw (JSONError.ExpectedColon i)
                     | true -> 
-                        match this.readValue() with
-                        | None -> throw (JSONError.ExpectedValue i)
-                        | Some v ->
-                            do this.bypassWhitespace()
-                            match this.readAndMove(ASCIIByte.comma) with
-                            | true -> readObjectProperties (accum |> Map.add s v)
-                            | false -> 
-                                match this.readAndMove(ASCIIByte.objectClose) with
-                                | false -> throw (JSONError.ExpectedObjectClose i)
-                                | true -> accum
+                        let v = this.readValue() 
+                        do this.bypassWhitespace()
+                        match this.readAndMove(ASCIIByte.comma) with
+                        | true -> readObjectProperties (accum |> Map.add s v)
+                        | false -> 
+                            match this.readAndMove(ASCIIByte.objectClose) with
+                            | false -> throw (JSONError.ExpectedObjectClose i)
+                            | true -> accum
                 let readObject = readObjectProperties Map.empty
                 parserDepth <- parserDepth - 1
                 readObject
@@ -449,7 +450,7 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
             then throw JSONError.FoundBOMForUnsupportdEncodingUTF32LE
 
     
-    member this.parse() : JsonValue option =
+    member this.parse() : JsonParseResult =
         
         // throw if a UTF-16 or UTF-32 BOM is found
         // this is the only place where STJSON does not follow RFC 7159
@@ -472,15 +473,15 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
                 then 
                     if this.readAndMove(ASCIIByte.utf8BOMByte3)
                     then
-                        parseJson()
-                    else None
-                else None
-            else parseJson()
+                        Success (parseJson())
+                    else SyntaxError "Expected UTF-8 BOM byte 3"
+                else SyntaxError "Expected UTF-8 BOM byte 2"
+            else Success (parseJson())
         with
-        | :? System.InvalidOperationException as ex -> None
+        | :? System.InvalidOperationException as ex -> SyntaxError ex.Message
                 
 
-    member this.readValue() : JsonValue option =
+    member this.readValue() : JsonValue =
         
         do this.bypassWhitespace()
         
@@ -489,18 +490,18 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
         | Some byte ->
             match byte with 
             | x when x = (uint8 ASCIIByte.arrayOpen) ->
-                Some (JsonArray (this.readArray()))
+                JsonArray (this.readArray())
             | x when x = (uint8 ASCIIByte.doubleQuote) ->
-                Some (JsonString (this.readString()))
+                JsonString (this.readString())
             | x when x = (uint8 ASCIIByte.objectOpen) ->
-                Some (JsonObject (this.readObject()))
+                JsonObject (this.readObject())
             | x when x = (uint8 ASCIIByte.t) ->
                 let startPos = i
                 if this.readAndMove(ASCIIByte.t)
                     && this.readAndMove(ASCIIByte.r)
                     && this.readAndMove(ASCIIByte.u)
                     && this.readAndMove(ASCIIByte.e)
-                then Some (JsonBool true)
+                then JsonBool true
                 else throw (JSONError.FoundGarbage startPos)
             | x when x = (uint8 ASCIIByte.f) ->
                 let startPos = i
@@ -509,7 +510,7 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
                     && this.readAndMove(ASCIIByte.l)
                     && this.readAndMove(ASCIIByte.s)
                     && this.readAndMove(ASCIIByte.e)
-                then Some (JsonBool false)
+                then JsonBool false
                 else throw (JSONError.FoundGarbage startPos)
             | x when x = (uint8 ASCIIByte.n) ->
                 let startPos = i
@@ -517,12 +518,12 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
                     && this.readAndMove(ASCIIByte.u)
                     && this.readAndMove(ASCIIByte.l)
                     && this.readAndMove(ASCIIByte.l)
-                then Some JsonNull
+                then JsonNull
                 else throw (JSONError.FoundGarbage startPos)
             | _ ->
                 match this.readNumber() with
-                | None -> throw (JSONError.ExpectedNumber i)
-                | Some str -> Some (JsonNumber str)
+                | None -> throw (JSONError.ExpectedValue i)
+                | Some str -> JsonNumber str
 
     
     /// Returns number as string since JSON's numbers are different than F#'s numbers

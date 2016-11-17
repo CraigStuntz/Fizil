@@ -11,5 +11,5 @@ type Result =
         NewPathFound:       bool
     }
     member this.HasStdErrOutput =
-        System.String.IsNullOrWhiteSpace(this.TestResult.StdOut)
+        not <| System.String.IsNullOrWhiteSpace(this.TestResult.StdErr)
 

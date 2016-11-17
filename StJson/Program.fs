@@ -17,8 +17,10 @@ let main argv =
                 let o = p.parse()
 
                 match o with
-                | Some _ -> 0
-                | None -> 0
+                | Success _ -> 0
+                | SyntaxError message -> 
+                    eprintfn "%s" message
+                    1
             with
                 | ex -> 
                     printfn "%s" ex.Message

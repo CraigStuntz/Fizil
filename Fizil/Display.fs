@@ -3,6 +3,7 @@
 open ExecutionResult
 open System
 open System.Globalization
+open System.Linq
 open TestCase
 
 
@@ -50,6 +51,12 @@ type private Status =
                 then Convert.ToDouble(executions) / Convert.ToDouble(elapsedTime.TotalMilliseconds) * 1000.0
                 else 0.0
             let shouldRedrawTitles = this.Executions = 0UL || now - this.LastTitleRedraw > consoleTitleRedrawInterval
+            let newCrash = 
+                match result.TestResult.Crashed, result.HasStdErrOutput with
+                | true,  true  -> Some result.TestResult.StdErr
+                | false, true  -> Some result.TestResult.StdErr
+                | true,  false -> Some result.TestResult.StdOut
+                | false, false -> None
             let lastTitleRedraw = if shouldRedrawTitles then now else this.LastTitleRedraw
             {
                 Configuration       = this.Configuration
@@ -61,11 +68,15 @@ type private Status =
                 Paths               = this.Paths            + (if result.NewPathFound  then 1UL else 0UL)
                 ExecutionsPerSecond = executionsPerSecond
                 LastCrash           = 
-                    match result.TestResult.Crashed, result.HasStdErrOutput with
-                    | true,  true  -> Some result.TestResult.StdErr
-                    | false, true  -> Some result.TestResult.StdErr
-                    | true,  false -> Some result.TestResult.StdOut
-                    | false, false -> this.LastCrash
+                    match newCrash, this.LastCrash with
+                    | None        , None     -> None
+                    | Some _      , None     -> newCrash
+                    | None        , Some _   -> this.LastCrash
+                    | Some message, Some old -> 
+                        let paddedLength = old.TrimEnd().Length 
+                        if paddedLength > message.Length 
+                        then Some (message.PadRight(paddedLength))
+                        else Some (message)
                 LastTitleRedraw     = lastTitleRedraw
                 ShouldRedrawTitles  = shouldRedrawTitles 
             }
@@ -104,9 +115,10 @@ let private writeParagraph (redrawTitle: bool) (title: string) (leftColumnWidth:
     | Some value -> 
         if redrawTitle
         then
-            Console.WriteLine ((title.PadLeft leftColumnWidth) + " : ")
+            Console.WriteLine ((title.PadLeft leftColumnWidth) + " :       ")
         else
-            Console.CursorTop <- Console.CursorTop + 1
+            Console.CursorLeft <- (leftColumnWidth + 2)
+            Console.WriteLine "        "
         Console.ForegroundColor <- valueColor
         Console.WriteLine value
     | None -> 
@@ -122,6 +134,12 @@ let private formatTimeSpan(span: TimeSpan) : string =
     sprintf "%d days, %d hrs, %d minutes, %d seconds  " span.Days span.Hours span.Minutes span.Seconds
 
 
+let private stripControlCharacters (str: string) : string =
+    if str.Any(fun c -> Char.IsControl c)
+    then new System.String(str.Where(fun c -> not <| Char.IsControl c).ToArray())
+    else str
+
+
 let private toConsole(status: Status) =
     Console.BackgroundColor <- backgroundColor
     Console.SetCursorPosition(0, 0)
@@ -134,7 +152,7 @@ let private toConsole(status: Status) =
     writeValue redrawTitle "Nonzero exit codes" titleWidth (status.NonZeroExitCodes.ToString(CultureInfo.CurrentUICulture))
     writeValue redrawTitle "Paths"              titleWidth (status.Paths.ToString(CultureInfo.CurrentUICulture))
     writeValue redrawTitle "Executions/second"  titleWidth (status.ExecutionsPerSecond.ToString("G4", CultureInfo.CurrentUICulture))
-    writeParagraph redrawTitle "Last crash"     titleWidth status.LastCrash
+    writeParagraph redrawTitle "Last crash"     titleWidth (status.LastCrash |> Option.map stripControlCharacters)
 
 
 [<NoComparison>]

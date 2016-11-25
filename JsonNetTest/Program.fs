@@ -60,14 +60,19 @@ let private compareParsers (maybeJson: byte[]) : TestResult =
     | [||] -> TestResult(false, 1, (sprintf "Expected JSON; found %A" maybeJson), "")
     | _ ->
         try
-        match maybeJson |> removeUtf16ByteOrderMark |> parseJson with
-            | { JsonNet = Success; StJson = Success } 
-            | { JsonNet = Error _; StJson = Error _ } -> 
-                TestResult(false, 0, "", "")
-            | { JsonNet = Success; StJson = Error message } -> 
-                TestResult(false, 1, (sprintf "JsonNet returned Success; StJson returned error: %s" message), "") 
-            | { JsonNet = Error message; StJson = Success } -> 
-                TestResult(false, 1, (sprintf "StJson returned Success; JsonNet returned error: %s" message), "") 
+        let results = maybeJson |> removeUtf16ByteOrderMark |> parseJson
+        if results.JsonNet = Success 
+        then 
+            match results.StJson with
+            | Success -> TestResult(false, 0, "", "")
+            | Error message -> TestResult(false, 1, (sprintf "JsonNet returned Success; StJson returned error: %s" message), "")
+        else 
+            if results.StJson = Success
+            then
+                match results.JsonNet with
+                | Success -> TestResult(false, 0, "", "")
+                | Error message -> TestResult(false, 1, (sprintf "StJson returned Success; JsonNet returned error: %s" message), "") 
+            else TestResult(false, 0, "", "")
         with
         | ex -> TestResult.UnhandledException(ex.Message)
 

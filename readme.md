@@ -5,19 +5,20 @@ This is an experiment and doesn't do much yet. Interesting things are coming!
 
 In the meantime, use [AFL](http://lcamtuf.coredump.cx/afl/) if you want to do real fuzzing.
 
-| Feature                                | Fizil           | AFL                |
-|----------------------------------------|-----------------|--------------------|
-| Runs on Windows                        | Yep!            | No, but [there's a fork](https://github.com/ivanfratric/winafl) |
-| Runs on Unix                           | Probably not    | Yep!               |
-| Fast                                   | Not so much     | Yep!               |
-| Instrumentation guided                 | Soon?           | Yep!               |
-| Automatic instrumentation              | .NET assemblies | Clang, GCC, Python |
-| Rich suite of fuzzing strategies       | Not yet!        | Yes!               |
-| Automatically disables crash reporting | Yep!            | Nope               |
-| Rich tooling                           | No              | Yes                |
-| Proven track record                    | No              | Yes                |
-| Stable                                 | No way          | Yes                |
-| License                                | Apache 2.0      | Apache 2.0         |
+| Feature                                | Fizil             | AFL                |
+|----------------------------------------|-------------------|--------------------|
+| Runs on Windows                        | Yep!              | No, but [there's a fork](https://github.com/ivanfratric/winafl) |
+| Runs on Unix                           | Probably not      | Yep!               |
+| Fast                                   | Not so much       | Yep!               |
+| Process models                         | In/Out of process | Out of process, fork server |
+| Instrumentation guided                 | Soon?             | Yep!               |
+| Automatic instrumentation              | .NET assemblies   | Clang, GCC, Python |
+| Rich suite of fuzzing strategies       | Getting there!    | Yes!               |
+| Automatically disables crash reporting | Yep!              | Nope               |
+| Rich tooling                           | No                | Yes                |
+| Proven track record                    | No                | Yes                |
+| Stable                                 | No way            | Yes                |
+| License                                | Apache 2.0        | Apache 2.0         |
 
 ## Getting Started
 1. Clone repo, `cd` into root (solution) directory

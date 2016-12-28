@@ -32,7 +32,7 @@ type private Status =
         NonZeroExitCodes:    uint64
         Paths:               uint64
         ExecutionsPerSecond: float
-        LastCrash:           string option
+        LastError:           string option
         LastTitleRedraw:     DateTimeOffset
         ShouldRedrawTitles:  bool
     }
@@ -67,12 +67,15 @@ type private Status =
                 NonZeroExitCodes    = this.NonZeroExitCodes + (if result.TestResult.ExitCode <> 0 then 1UL else 0UL)
                 Paths               = this.Paths            + (if result.NewPathFound  then 1UL else 0UL)
                 ExecutionsPerSecond = executionsPerSecond
-                LastCrash           = 
-                    match newCrash, this.LastCrash with
+                LastError           = 
+                    match newCrash, this.LastError with
                     | None        , None     -> None
-                    | Some _      , None     -> newCrash
-                    | None        , Some _   -> this.LastCrash
+                    | Some message, None     -> 
+                        System.Diagnostics.Debug.WriteLine message
+                        newCrash
+                    | None        , Some _   -> this.LastError
                     | Some message, Some old -> 
+                        System.Diagnostics.Debug.WriteLine message
                         let paddedLength = old.TrimEnd().Length 
                         if paddedLength > message.Length 
                         then Some (message.PadRight(paddedLength))
@@ -92,7 +95,7 @@ let private initialState() =
         NonZeroExitCodes    = 0UL
         Paths               = 0UL
         ExecutionsPerSecond = 0.0
-        LastCrash           = None
+        LastError           = None
         LastTitleRedraw     = DateTimeOffset.UtcNow
         ShouldRedrawTitles  = true
     }
@@ -152,7 +155,7 @@ let private toConsole(status: Status) =
     writeValue redrawTitle "Nonzero exit codes" titleWidth (status.NonZeroExitCodes.ToString(CultureInfo.CurrentUICulture))
     writeValue redrawTitle "Paths"              titleWidth (status.Paths.ToString(CultureInfo.CurrentUICulture))
     writeValue redrawTitle "Executions/second"  titleWidth (status.ExecutionsPerSecond.ToString("G4", CultureInfo.CurrentUICulture))
-    writeParagraph redrawTitle "Last crash"     titleWidth (status.LastCrash |> Option.map stripControlCharacters)
+    writeParagraph redrawTitle "Last error"     titleWidth (status.LastError |> Option.map stripControlCharacters)
 
 
 [<NoComparison>]

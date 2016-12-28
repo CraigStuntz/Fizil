@@ -418,7 +418,7 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
                         | false -> 
                             match this.readAndMove(ASCIIByte.objectClose) with
                             | false -> throw (JSONError.ExpectedObjectClose i)
-                            | true -> accum
+                            | true -> (accum |> Map.add s v)
                 let readObject = readObjectProperties Map.empty
                 parserDepth <- parserDepth - 1
                 readObject

@@ -22,7 +22,7 @@ let readAllFromStdIn() : string =
 let parseJson (maybeJson: (string * byte[])) : ParseResult =
     let str, bytes = maybeJson
     let jsonNetResult = 
-        try JsonConvert.DeserializeObject<Dictionary<System.String, obj>>(str) |> ignore
+        try JsonConvert.DeserializeObject<obj>(str) |> ignore
             Success
         with 
         | :? JsonReaderException        as jre -> jre.Message |> Error
@@ -34,7 +34,7 @@ let parseJson (maybeJson: (string * byte[])) : ParseResult =
     let stJsonResult = 
         try
             let parser = StJson.StJsonParser(bytes |> List.ofArray, 500, StJson.Options.none)
-            match parser.parse() with
+            match parser.parse() with   
                 | StJson.JsonParseResult.Success               _ -> Success
                 | StJson.JsonParseResult.SyntaxError message   -> Error message
         with
@@ -48,19 +48,12 @@ let stringify (ob: obj) : string =
     JsonConvert.SerializeObject(ob)
 
 
-let private removeUtf16ByteOrderMark(bytes: byte[]) : (string * byte[]) =
-    use stream = new System.IO.MemoryStream(bytes)
-    use reader = new System.IO.StreamReader(stream, System.Text.UTF8Encoding.UTF8, true)
-    let text = reader.ReadToEnd()
-    text, System.Text.Encoding.UTF8.GetBytes(text)
-
-
 let private compareParsers (maybeJson: byte[]) : TestResult =
     match maybeJson with 
     | [||] -> TestResult(false, 1, (sprintf "Expected JSON; found %A" maybeJson), "")
     | _ ->
         try
-        let results = maybeJson |> removeUtf16ByteOrderMark |> parseJson
+        let results = maybeJson |> TestCase.removeUtf16ByteOrderMark |> parseJson
         if results.JsonNet = Success 
         then 
             match results.StJson with
@@ -91,9 +84,14 @@ let rec private readBytesFromStream(stream: System.IO.BinaryReader) =
 
 [<EntryPoint>]
 let main argv = 
-    use stdIn = System.Console.OpenStandardInput()
-    use streamReader = new System.IO.BinaryReader(stdIn)
-    let maybeJson = readBytesFromStream streamReader
+    let maybeJson = 
+        if (argv |> Array.length) = 1
+        then 
+            System.IO.File.ReadAllBytes (argv |> Array.head)
+        else
+            use stdIn = System.Console.OpenStandardInput()
+            use streamReader = new System.IO.BinaryReader(stdIn)
+            readBytesFromStream streamReader
     let result = compareParsers maybeJson
     if not (System.String.IsNullOrEmpty result.StdErr)
     then eprintfn "%s" result.StdErr

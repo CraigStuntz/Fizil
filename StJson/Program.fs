@@ -5,10 +5,6 @@ open StJson
 let main argv = 
     match argv with
     | [| path |] ->
-        let programName = path
-        printfn "Usage: %s file.json" programName
-        1
-    | [| _programName; path |] ->
         try
             let data = System.IO.File.ReadAllBytes path
         

@@ -72,3 +72,14 @@ module StJsonTests =
     let testReadDoubleWithExponent() =
         let actual = parseString "10.0e1"
         actual |> shouldEqual (Parsed (JsonNumber "10.0e1")) 
+
+
+    [<Test>]
+    let stringOverloadShouldGiveSameResultsAsBytes() = 
+        let json  = """ { "abc": "def"} """
+        let bytes = System.Text.Encoding.UTF8.GetBytes json |> List.ofArray
+
+        let parsedAsBytes = StJsonParser(bytes).parse()
+        let parsedAsString = StJsonParser(json).parse()
+
+        parsedAsBytes |> shouldEqual parsedAsString

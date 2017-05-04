@@ -80,7 +80,7 @@ let initializeTestRun (project: Project) =
 let private loadExampleFile (project: Project) (filename: string) : byte[] =
     let extension = (filename |> Path.GetExtension).ToLowerInvariant()
     if project.TextFileExtensions.Any(fun ext -> extension.Equals(ext, System.StringComparison.OrdinalIgnoreCase))
-    then File.ReadAllText(filename) |> Convert.toBytes
+    then File.ReadAllText(filename) |> Convert.toBytesUtf8
     else File.ReadAllBytes(filename)
 
 

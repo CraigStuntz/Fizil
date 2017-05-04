@@ -19,10 +19,11 @@ let readAllFromStdIn() : string =
     loop (System.Console.ReadLine())
     
 
-let parseJson (maybeJson: (string * byte[])) : ParseResult =
-    let str, bytes = maybeJson
+let parseJson (maybeJson: byte[]) : ParseResult =
+    use stream = new System.IO.MemoryStream(maybeJson)
+    use reader = new System.IO.StreamReader(stream, true)
     let jsonNetResult = 
-        try JsonConvert.DeserializeObject<obj>(str) |> ignore
+        try JsonSerializer.Create().Deserialize(reader, typeof<obj>) |> ignore
             Success
         with 
         | :? JsonReaderException        as jre -> jre.Message |> Error
@@ -33,7 +34,7 @@ let parseJson (maybeJson: (string * byte[])) : ParseResult =
             else reraise()
     let stJsonResult = 
         try
-            let parser = StJson.StJsonParser(bytes |> List.ofArray, 500, StJson.Options.none)
+            let parser = StJson.StJsonParser(maybeJson |> List.ofArray, 500, StJson.Options.none)
             match parser.parse() with   
                 | StJson.JsonParseResult.Success               _ -> Success
                 | StJson.JsonParseResult.SyntaxError message   -> Error message
@@ -53,7 +54,7 @@ let private compareParsers (maybeJson: byte[]) : TestResult =
     | [||] -> TestResult(false, 1, (sprintf "Expected JSON; found %A" maybeJson), "")
     | _ ->
         try
-        let results = maybeJson |> TestCase.removeUtf16ByteOrderMark |> parseJson
+        let results = maybeJson |> parseJson
         if results.JsonNet = Success 
         then 
             match results.StJson with

@@ -1,11 +1,17 @@
 ﻿module TestCase
 
+let utf8Encoding = System.Text.UTF8Encoding(false, true)
 
-let removeUtf16ByteOrderMark(bytes: byte[]) : (string * byte[]) =
+
+let removeUtf16ByteOrderMark(bytes: byte[]) : (string * byte[]) option =
     use stream = new System.IO.MemoryStream(bytes)
     use reader = new System.IO.StreamReader(stream, System.Text.UTF8Encoding.UTF8, true)
     let text = reader.ReadToEnd()
-    text, System.Text.Encoding.UTF8.GetBytes(text)
+    try
+        let encodedBytes = utf8Encoding.GetBytes(text)
+        Some (text, encodedBytes)
+    with 
+    | :? System.Text.DecoderFallbackException -> None
 
 
 /// How many test cases do we expect per example 

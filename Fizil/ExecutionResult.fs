@@ -12,5 +12,3 @@ type Result =
     }
     member this.HasStdErrOutput =
         not <| System.String.IsNullOrWhiteSpace(this.TestResult.StdErr)
-
-    member this.TestCaseAsString() = TestCase.removeUtf16ByteOrderMark this.TestCase.Data

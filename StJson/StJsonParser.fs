@@ -84,7 +84,7 @@ type JSONError =
 | ExpectedDoubleQuote of int
 | ExpectedCharacter of int
 | CannotBuildStringFromData of int
-| ExpectedAcceptableCodepointOrEscapedSequence of int
+| ExpectedAcceptableCodepointOrEscapedSequence of (int * byte[])
 | CannotReadInt of int
 | ExtraData of int
 | MaxParserDepthReached of int
@@ -100,6 +100,7 @@ type JSONError =
 
 
 type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) = 
+
     let maxParserDepth = defaultArg maxParserDepth 500
     let options = defaultArg options Options.none
     let mutable i = 0
@@ -117,9 +118,19 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
         System.String(chars)
 
 
+    new (data: string, ?maxParserDepth: int, ?options: Options) = 
+        let bytes = System.Text.Encoding.UTF8.GetBytes(data) |> List.ofArray
+        let maxParserDepth = defaultArg maxParserDepth 500
+        let options = defaultArg options Options.none
+        StJsonParser(bytes, maxParserDepth, options)
+
     member this.printRemainingString : String =
         let _, remainingData = List.splitAt i data 
         sprintf "-- REMAINING STRING FROM %d: %s" i (remainingData |> toString)
+
+
+    override this.ToString() : String =
+        data |> toString
 
     
     member this.read() : byte option =
@@ -381,11 +392,11 @@ type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) =
                             try
                                 let s = utf8Encoding.GetString(acceptableBytes)   
                                 match s with 
-                                | "" -> throw (JSONError.ExpectedAcceptableCodepointOrEscapedSequence i)   
+                                | "" -> throw (JSONError.ExpectedAcceptableCodepointOrEscapedSequence (i, acceptableBytes))   
                                 | _ -> s + loop()
                             with
                             | :? System.Text.DecoderFallbackException -> 
-                                throw (JSONError.ExpectedAcceptableCodepointOrEscapedSequence i)
+                                throw (JSONError.ExpectedAcceptableCodepointOrEscapedSequence (i, acceptableBytes))
             loop()
         
            

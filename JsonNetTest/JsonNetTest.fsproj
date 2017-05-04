@@ -25,7 +25,8 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Debug\JsonNetTest.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
-    <StartArguments>{ "a" : "bc" }</StartArguments>
+    <StartArguments>"\\Mac\Home\Documents\Visual Studio 2015\Projects\Fizil\Demo\examples\abc.txt"</StartArguments>
+    <StartAction>Project</StartAction>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>

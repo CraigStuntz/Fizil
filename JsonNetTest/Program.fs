@@ -65,7 +65,7 @@ let private compareParsers (maybeJson: byte[]) : TestResult =
             then
                 match results.JsonNet with
                 | Success -> TestResult(false, 0, "", "")
-                | Error message -> TestResult(false, 1, (sprintf "StJson returned Success; JsonNet returned error: %s" message), "") 
+                | Error message -> TestResult(true, 2, (sprintf "StJson returned Success; JsonNet returned error: %s" message), "") 
             else TestResult(false, 0, "", "")
         with
         | ex -> TestResult.UnhandledException(ex.Message)

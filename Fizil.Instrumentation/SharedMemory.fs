@@ -15,6 +15,7 @@ let private mapName() =
     | null    -> failwith "Shared memory environment variable not set."
     | envName -> envName
 
+
 /// Creates and zero-initializes a memory-mapped file
 let create(sharedMemoryName: string) =
     // this will be zeroed by the OS.
@@ -33,11 +34,12 @@ let openMemory() =
         MemoryMappedFileRights.ReadWrite)
 
 
-let incrementByte(sharedMemory : MemoryMappedFile) (address: uint16) =
+let incrementByte(sharedMemory : MemoryMappedViewStream) (address: uint16) =
     let offset = address |> int64
-    let accessor = sharedMemory.CreateViewAccessor(offset, 1L)
-    let b = accessor.ReadByte(0L)
-    accessor.Write(0L, b + 1uy)
+    sharedMemory.Seek(offset, SeekOrigin.Begin) |> ignore
+    let b = sharedMemory.ReadByte() |> byte
+    sharedMemory.Seek(offset, SeekOrigin.Begin) |> ignore
+    sharedMemory.WriteByte(b + 1uy)
 
 
 let readBytes(sharedMemory: MemoryMappedFile) : byte[] =

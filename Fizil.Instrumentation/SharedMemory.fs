@@ -15,6 +15,13 @@ let private mapName() =
     | null    -> failwith "Shared memory environment variable not set."
     | envName -> envName
 
+/// Overwrites entire memory in stream with 0s
+let clear (sharedMemory : MemoryMappedViewStream) =
+    let zeros : byte[] = Array.zeroCreate 16
+    sharedMemory.Seek(0L, SeekOrigin.Begin) |>ignore
+    for index = 0 to (mapSize32 / 16) - 1 do
+        sharedMemory.Write(zeros, 0, 16)
+
 
 /// Creates and zero-initializes a memory-mapped file
 let create(sharedMemoryName: string) =

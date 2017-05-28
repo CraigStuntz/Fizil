@@ -13,11 +13,22 @@ type Instrument()  =
 
     static let mutable instance : Instrument = null
 
+    static member Clear() = instance.ClearImpl()  
+
     static member OpenMethodName = "Open" 
     static member Open() = instance <- new Instrument()
 
+    static member ReadBytes() =
+        instance.SharedMemory |> SharedMemory.readBytes
+
     static member TraceMethodName = "Trace" 
     static member Trace (currentLocation: uint16) = instance.TraceImpl(currentLocation)
+
+    member this.ClearImpl() =
+        SharedMemory.clear memoryStream
+
+    member private this.SharedMemory = sharedMemory
+
 
     member this.TraceImpl (currentLocation: uint16) =
         let address = currentLocation ^^^ previousLocation

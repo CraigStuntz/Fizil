@@ -146,13 +146,13 @@ let instrumentExecutable (assemblyFilename: string, assembliesToInstrument: Set<
     let assembly     = AssemblyDefinition.ReadAssembly assemblyFilename
     if assembly.EntryPoint <> null 
     then instrumentEntryPoint assembly.EntryPoint
-    let fizilEntryPoints = 
-        assembly.Modules
-        |> Seq.collect (fun assemblyModule -> assemblyModule.Types)
-        |> Seq.collect (fun moduleType -> moduleType.Methods)
-        |> Seq.filter (fun methodDef -> 
-            methodDef.CustomAttributes.Any(fun customAttr -> customAttr.AttributeType.FullName = typeof<FizilEntryPointAttribute>.FullName))
-    fizilEntryPoints |> Seq.iter instrumentEntryPoint
+//    let fizilEntryPoints = 
+//        assembly.Modules
+//        |> Seq.collect (fun assemblyModule -> assemblyModule.Types)
+//        |> Seq.collect (fun moduleType -> moduleType.Methods)
+//        |> Seq.filter (fun methodDef -> 
+//            methodDef.CustomAttributes.Any(fun customAttr -> customAttr.AttributeType.FullName = typeof<FizilEntryPointAttribute>.FullName))
+//    fizilEntryPoints |> Seq.iter instrumentEntryPoint
     let trace        = assembly.MainModule.Import traceMethod
     let initialState = { Random = Random(); Trace = trace }
     let mainModuleTypes = assembly.MainModule.Types

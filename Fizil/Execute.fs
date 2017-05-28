@@ -14,28 +14,41 @@ open TestCase
 open System.Linq.Expressions
 
 
+let (|InProcessSerial|OutOfProcess|) = function
+| "InProcessSerial"   -> InProcessSerial
+| "OutOfProcess"      -> OutOfProcess
+| wrong          -> failwithf "Unexpected Execution Isolation value %s" wrong
+
+
+[<AbstractClass>]
+type private TestRunner (project: Project) =
+    member this.ExecutablePath = 
+        let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
+        let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
+        if File.Exists instrumentedExe then instrumentedExe else sutExe
+
+    abstract member ExecuteTest: TestCase -> Result
+    abstract member Dispose: unit -> unit
+    default this.Dispose() = ()
+    interface System.IDisposable with 
+        member this.Dispose() = this.Dispose()
+
+
 [<NoComparison>]
 [<NoEquality>]
-type InputMethod = {
+type OutOfProcessInputMethod = {
     BeforeStart: Process -> byte[] -> unit
     AfterStart:  Process -> byte[] -> unit
 }
 
 
-[<NoComparison>]
-[<NoEquality>]
-type EntryPoint = 
-| ByteArrayEntryPoint of (byte[] -> TestResult)
-| StringEntryPoint    of (string -> TestResult)
-
-
-let onCommandLine : InputMethod = {
+let onCommandLine : OutOfProcessInputMethod = {
     BeforeStart = fun (proc: Process) (data: byte[])  ->
         proc.StartInfo.Arguments <- Convert.toString data
     AfterStart = fun _proc _data -> ()
 }
 
-let onStandardInput : InputMethod = {
+let onStandardInput : OutOfProcessInputMethod = {
     BeforeStart = fun proc _data -> 
         proc.StartInfo.RedirectStandardInput <- true
     AfterStart = fun (proc: Process) (data: byte[])  ->
@@ -44,13 +57,7 @@ let onStandardInput : InputMethod = {
 }
 
 
-let (|InProcessSerial|OutOfProcess|) = function
-| "InProcessSerial"   -> InProcessSerial
-| "OutOfProcess"      -> OutOfProcess
-| wrong          -> failwithf "Unexpected Execution Isolation value %s" wrong
-
-
-let private projectInputMethod (project: Project) =
+let private projectOutOfProcessInputMethod (project: Project) =
     match project.Execute.Input.ToLowerInvariant() with
     | "oncommandline"   -> onCommandLine
     | "onstandardinput" -> onStandardInput
@@ -67,6 +74,128 @@ type private ExecutionState = {
     FindingsFolder: string
     ObservedPaths:  HashSet<string>
 }
+
+
+let private executionId = ref 0L
+/// returns a unique (for this test run) name each time it's called
+let private getSharedMemoryName() =
+    sprintf "Fizil-shared-memory-%d" (System.Threading.Interlocked.Increment(executionId))
+
+
+type private OutOfProcessTestRunner(project: Project) = 
+    inherit TestRunner(project)
+    member this.InputMethod = 
+        project |> projectOutOfProcessInputMethod
+        
+    member private this.ExecuteOutOfProcess sharedMemoryName testCase = 
+        use proc = new Process()
+        proc.StartInfo.FileName               <- this.ExecutablePath
+        this.InputMethod.BeforeStart proc testCase.Data
+        proc.StartInfo.UseShellExecute        <- false
+        proc.StartInfo.RedirectStandardOutput <- true
+        proc.StartInfo.RedirectStandardError  <- true
+        proc.StartInfo.EnvironmentVariables.Add(SharedMemory.environmentVariableName, sharedMemoryName)
+        let output = new System.Text.StringBuilder()
+        let err = new System.Text.StringBuilder()
+        proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
+        proc.ErrorDataReceived.Add(fun args -> err.Append(args.Data) |> ignore)
+
+        proc.Start() |> ignore
+        this.InputMethod.AfterStart proc testCase.Data
+        proc.BeginOutputReadLine()
+        proc.BeginErrorReadLine()
+
+        proc.WaitForExit()
+        let exitCode = proc.ExitCode
+
+        let crashed = exitCode = WinApi.ClrUnhandledExceptionCode
+        proc.Close()
+        {
+            TestCase           = testCase
+            TestResult         = TestResult(crashed, exitCode, err.ToString(), output.ToString())
+            SharedMemory       = Array.empty
+            NewPathFound       = false
+        }
+
+    override this.ExecuteTest testCase =
+        let sharedMemoryName = getSharedMemoryName()
+        use sharedMemory = SharedMemory.create(sharedMemoryName)
+        let result = this.ExecuteOutOfProcess sharedMemoryName testCase
+        let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
+        { result with SharedMemory = finalSharedMemory }
+
+
+[<NoComparison>]
+[<NoEquality>]
+type EntryPoint = 
+| ByteArrayEntryPoint of (byte[] -> TestResult)
+| StringEntryPoint    of (string -> TestResult)
+
+type ByteArrayEntryPointDelegate = delegate of byte[] -> TestResult 
+type StringEntryPointDelegate    = delegate of string -> TestResult 
+
+
+type private InProcessTestRunner(project: Project) = 
+    inherit TestRunner(project)
+    
+    let initializeSharedMemory() =
+         let sharedMemoryName = getSharedMemoryName()
+         System.Environment.SetEnvironmentVariable(SharedMemory.environmentVariableName, sharedMemoryName)
+         SharedMemory.create(sharedMemoryName)
+
+    let mutable sharedMemory = initializeSharedMemory()
+
+    do
+        Instrument.Open()
+
+    let tryFindValidFizilEntryPoint(fn: System.Reflection.MethodInfo) : EntryPoint option =
+        let parameters = fn.GetParameters()
+        match fn.IsStatic && parameters.Count() = 1 && fn.ReturnType = typeof<TestResult> with
+        | false -> None
+        | true  ->
+            match parameters.First().ParameterType with 
+            | x when x = typeof<byte[]> ->
+                let del = System.Delegate.CreateDelegate(typeof<ByteArrayEntryPointDelegate>, fn) :?> ByteArrayEntryPointDelegate
+                Some (ByteArrayEntryPoint (fun bytes -> (del.Invoke bytes)))
+            | x when x = typeof<string> ->
+                let del = System.Delegate.CreateDelegate(typeof<StringEntryPointDelegate>, fn) :?> StringEntryPointDelegate
+                Some (StringEntryPoint (fun str -> (del.Invoke str)))
+            | _ -> None
+
+
+    let findInProcessEntryPoint (executablePath: string) : EntryPoint =
+        let assembly = System.Reflection.Assembly.LoadFrom executablePath
+        let fn = 
+            assembly.GetTypes()
+                .SelectMany(fun (t: System.Type) -> t.GetMethods().AsEnumerable())
+                .Where(fun m -> m.GetCustomAttributes(typeof<FizilEntryPointAttribute>, false).Length > 0)
+                .FirstOrDefault()
+        match fn with 
+        | null -> failwith "Using in process fuzzing requires a public method in the target assembly annotated with FizilEntryPointAttribute. No such method was found."
+        | _ ->
+            match tryFindValidFizilEntryPoint fn with
+            | None -> failwith "FizilEntryPoint function must be a static method with a single argument of type string or byte[] and a result of type TestResult"
+            | Some entryPoint -> entryPoint
+
+    member this.EntryPoint = 
+        match findInProcessEntryPoint this.ExecutablePath with
+        | ByteArrayEntryPoint fn -> fn
+        | StringEntryPoint fn -> (fun bytes -> bytes |> Convert.toString |> fn)
+
+    override this.ExecuteTest testCase =
+        Instrument.Clear()
+        let testResult = this.EntryPoint(testCase.Data)
+        let finalSharedMemory = Instrument.ReadBytes()
+        {
+            TestCase           = testCase
+            TestResult         = testResult
+            SharedMemory       = finalSharedMemory
+            NewPathFound       = false
+        }
+
+    override this.Dispose() =
+        sharedMemory.Dispose()
+        Instrument.Close()
 
 
 let initializeTestRun (project: Project) =
@@ -95,95 +224,6 @@ let private loadExamples (project: Project) : TestCase list =
                 Stage         = Fuzz.useOriginalExample data 
             } )
         |> List.ofSeq
-
-
-
-type ByteArrayEntryPointDelegate = delegate of byte[] -> TestResult 
-type StringEntryPointDelegate    = delegate of string -> TestResult 
-
-
-let private tryFindValidFizilEntryPoint(fn: System.Reflection.MethodInfo) : EntryPoint option =
-    let parameters = fn.GetParameters()
-    match fn.IsStatic && parameters.Count() = 1 && fn.ReturnType = typeof<TestResult> with
-    | false -> None
-    | true  ->
-        match parameters.First().ParameterType with 
-        | x when x = typeof<byte[]> ->
-            let del = System.Delegate.CreateDelegate(typeof<ByteArrayEntryPointDelegate>, fn) :?> ByteArrayEntryPointDelegate
-            Some (ByteArrayEntryPoint (fun bytes -> (del.Invoke bytes)))
-        | x when x = typeof<string> ->
-            let del = System.Delegate.CreateDelegate(typeof<StringEntryPointDelegate>, fn) :?> StringEntryPointDelegate
-            Some (StringEntryPoint (fun str -> (del.Invoke str)))
-        | _ -> None
-
-
-let private findInProcessEntryPoint (executablePath: string) : EntryPoint =
-    let assembly = System.Reflection.Assembly.LoadFrom executablePath
-    let fn = 
-        assembly.GetTypes()
-            .SelectMany(fun (t: System.Type) -> t.GetMethods().AsEnumerable())
-            .Where(fun m -> m.GetCustomAttributes(typeof<FizilEntryPointAttribute>, false).Length > 0)
-            .FirstOrDefault()
-    match fn with 
-    | null -> failwith "Using in process fuzzing requires a public method in the target assembly annotated with FizilEntryPointAttribute. No such method was found."
-    | _ ->
-        match tryFindValidFizilEntryPoint fn with
-        | None -> failwith "FizilEntryPoint function must be a static method with a single argument of type string or byte[] and a result of type TestResult"
-        | Some entryPoint -> entryPoint
-
-
-let private executeTestCaseInProcess (entryPoint: EntryPoint) : byte[] -> TestResult =
-    match entryPoint with
-    | ByteArrayEntryPoint fn -> fn
-    | StringEntryPoint fn -> (fun bytes -> bytes |> Convert.toString |> fn)
-    
-
-let private projectInProcessEntryPoint (executablePath : string) =
-    executablePath
-        |> findInProcessEntryPoint
-        |> executeTestCaseInProcess
-
- 
-let private executeApplicationInProcess (sharedMemoryName: string) (testCase: TestCase) (entryPoint: byte[] -> TestResult) =
-    System.Environment.SetEnvironmentVariable(SharedMemory.environmentVariableName, sharedMemoryName)
-    let result = entryPoint(testCase.Data)
-    {
-        TestCase           = testCase
-        TestResult         = result
-        SharedMemory       = Array.empty
-        NewPathFound       = false
-    }
-
-
-let private executeApplicationOutOfProcess (inputMethod: InputMethod) (executablePath: string) (sharedMemoryName: string) (testCase: TestCase) =
-    use proc = new Process()
-    proc.StartInfo.FileName               <- executablePath
-    inputMethod.BeforeStart proc testCase.Data
-    proc.StartInfo.UseShellExecute        <- false
-    proc.StartInfo.RedirectStandardOutput <- true
-    proc.StartInfo.RedirectStandardError  <- true
-    proc.StartInfo.EnvironmentVariables.Add(SharedMemory.environmentVariableName, sharedMemoryName)
-    let output = new System.Text.StringBuilder()
-    let err = new System.Text.StringBuilder()
-    proc.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
-    proc.ErrorDataReceived.Add(fun args -> err.Append(args.Data) |> ignore)
-
-    proc.Start() |> ignore
-    inputMethod.AfterStart proc testCase.Data
-    proc.BeginOutputReadLine()
-    proc.BeginErrorReadLine()
-
-    proc.WaitForExit()
-    let exitCode = proc.ExitCode
-
-    let crashed = exitCode = WinApi.ClrUnhandledExceptionCode
-    proc.Close()
-    {
-        TestCase           = testCase
-        TestResult         = TestResult(crashed, exitCode, err.ToString(), output.ToString())
-        SharedMemory       = Array.empty
-        NewPathFound       = false
-    }
 
 
 let toHexString (bytes: byte[]) : string =
@@ -272,24 +312,10 @@ let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> =
         })
 
 
-let private executionId = ref 0L
-/// returns a unique (for this test run) name each time it's called
-let private getSharedMemoryName() =
-    sprintf "Fizil-shared-memory-%d" (System.Threading.Interlocked.Increment(executionId))
-
-
-let private executeApplicationTestCase (project: Project) (log: Logger) (inputMethod: InputMethod) (executablePath) (agent: MailboxProcessor<Message>) (testCase: TestCase) =
-    log.ToFile Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString))
-    let sharedMemoryName = getSharedMemoryName()
-    use sharedMemory = SharedMemory.create(sharedMemoryName)
-    let result = 
-        match project.Execute.Isolation with
-        | InProcessSerial   -> 
-            executeApplicationInProcess sharedMemoryName testCase (projectInProcessEntryPoint executablePath)
-        | OutOfProcess      -> executeApplicationOutOfProcess inputMethod executablePath sharedMemoryName testCase
-    let finalSharedMemory = sharedMemory |> SharedMemory.readBytes 
-    let resultWithSharedMemory = { result with SharedMemory = finalSharedMemory }
-    agent.Post(TestComplete resultWithSharedMemory)
+let private executeApplicationTestCase (runner: TestRunner) (log: Logger) (agent: MailboxProcessor<Message>) (testCase: TestCase) =
+    log.ToFile Verbose (sprintf "Test Case: %s" (testCase.Data |> Convert.toString)) 
+    let result = runner.ExecuteTest testCase
+    agent.Post(TestComplete result)
 
 
 let allTests (log: Logger) (project: Project) =
@@ -301,7 +327,6 @@ let allTests (log: Logger) (project: Project) =
         executionId := 0L
         let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
         let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
-        let inputMethod     = project |> projectInputMethod
         let executablePath  = if File.Exists instrumentedExe then instrumentedExe else sutExe
         initializeTestRun project
         log.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
@@ -317,8 +342,13 @@ let allTests (log: Logger) (project: Project) =
             match project.Execute.Isolation with 
             | InProcessSerial -> Seq.iter  // Stuff which can't be done in parallel
             | OutOfProcess    -> PSeq.iter // Stuff which  can  be done in parallel
+
+        use testRunner : TestRunner = 
+            match project.Execute.Isolation with
+            | InProcessSerial -> new InProcessTestRunner(project)    :> TestRunner
+            | OutOfProcess    -> new OutOfProcessTestRunner(project) :> TestRunner
         testCases
-            |> iter (executeApplicationTestCase project log inputMethod executablePath agent)
+            |> iter (executeApplicationTestCase testRunner log agent)
         // Tell agent we're done, dispose stuff it holds.
         let _finalState = agent.PostAndReply(fun replyChannel -> AllTestsComplete replyChannel)
         ExitCodes.success

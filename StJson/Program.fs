@@ -8,7 +8,7 @@ let main argv =
         try
             let data = System.IO.File.ReadAllBytes path
         
-            let p = StJsonParser(data |> List.ofArray)
+            let p = StJsonParser(data)
             try
                 let o = p.parse()
 

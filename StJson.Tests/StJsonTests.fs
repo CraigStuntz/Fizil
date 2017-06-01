@@ -14,7 +14,7 @@ module StJsonTests =
     | CouldNotParse of string
 
     let parseData(data: byte[]) : ParseResult =        
-        let p = StJsonParser(data |> List.ofArray)
+        let p = StJsonParser(data)
         try 
             match p.parse() with
             | Success jv          -> Parsed jv
@@ -77,7 +77,7 @@ module StJsonTests =
     [<Test>]
     let stringOverloadShouldGiveSameResultsAsBytes() = 
         let json  = """ { "abc": "def"} """
-        let bytes = System.Text.Encoding.UTF8.GetBytes json |> List.ofArray
+        let bytes = System.Text.Encoding.UTF8.GetBytes json
 
         let parsedAsBytes = StJsonParser(bytes).parse()
         let parsedAsString = StJsonParser(json).parse()

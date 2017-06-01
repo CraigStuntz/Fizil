@@ -34,7 +34,7 @@ let parseJson (maybeJson: byte[]) : ParseResult =
             else reraise()
     let stJsonResult = 
         try
-            let parser = StJson.StJsonParser(maybeJson |> List.ofArray, 500, StJson.Options.none)
+            let parser = StJson.StJsonParser(maybeJson, 500, StJson.Options.none)
             match parser.parse() with   
                 | StJson.JsonParseResult.Success               _ -> Success
                 | StJson.JsonParseResult.SyntaxError message   -> Error message

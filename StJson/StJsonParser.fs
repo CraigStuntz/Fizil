@@ -99,33 +99,33 @@ type JSONError =
 | FoundBOMForUnsupportdEncodingUTF32LE
 
 
-type StJsonParser(data: byte list, ?maxParserDepth: int, ?options: Options) = 
+type StJsonParser(data: byte[], ?maxParserDepth: int, ?options: Options) = 
 
     let maxParserDepth = defaultArg maxParserDepth 500
     let options = defaultArg options Options.none
     let mutable i = 0
-    let dataLength = data |> List.length
+    let dataLength = data |> Array.length
     let mutable parserDepth = 0
     let REPLACEMENT_STRING = "\u{FFFD}"
     let utf8Encoding = System.Text.UTF8Encoding(false, true)
 
     let throw(errorType: JSONError) = invalidOp <| sprintf "%A" errorType
 
-    let toString(bytes: byte list) : string =
+    let toString(bytes: byte[]) : string =
         let numChars = (bytes.Length / sizeof<char>) + (bytes.Length % sizeof<char>)
         let chars: char[] = Array.create numChars System.Char.MinValue
-        System.Buffer.BlockCopy((Array.ofList bytes), 0, chars, 0, bytes.Length)
+        System.Buffer.BlockCopy(bytes, 0, chars, 0, bytes.Length)
         System.String(chars)
 
 
     new (data: string, ?maxParserDepth: int, ?options: Options) = 
-        let bytes = System.Text.Encoding.UTF8.GetBytes(data) |> List.ofArray
+        let bytes = System.Text.Encoding.UTF8.GetBytes(data)
         let maxParserDepth = defaultArg maxParserDepth 500
         let options = defaultArg options Options.none
         StJsonParser(bytes, maxParserDepth, options)
 
     member this.printRemainingString : String =
-        let _, remainingData = List.splitAt i data 
+        let _, remainingData = Array.splitAt i data 
         sprintf "-- REMAINING STRING FROM %d: %s" i (remainingData |> toString)
 
 

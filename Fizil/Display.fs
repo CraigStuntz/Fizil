@@ -13,6 +13,7 @@ let valueColor      = ConsoleColor.White
 
 
 let private consoleTitleRedrawInterval = TimeSpan(0, 0, 0, 15, 0)
+let private consoleUpdateInterval = TimeSpan(0, 0, 0, 0, 100)
 
 
 type Configuration = {
@@ -34,7 +35,9 @@ type private Status =
         ExecutionsPerSecond: float
         LastError:           string option
         LastTitleRedraw:     DateTimeOffset
+        LastUpdate:          DateTimeOffset
         ShouldRedrawTitles:  bool
+        ShouldUpdate:        bool
     }
     with 
         member this.AddExecution(result: Result) =
@@ -51,6 +54,7 @@ type private Status =
                 then Convert.ToDouble(executions) / Convert.ToDouble(elapsedTime.TotalMilliseconds) * 1000.0
                 else 0.0
             let shouldRedrawTitles = this.Executions = 0UL || now - this.LastTitleRedraw > consoleTitleRedrawInterval
+            let shouldUpdate = this.Executions = 0UL || now - this.LastUpdate > consoleUpdateInterval
             let newCrash = 
                 match result.TestResult.Crashed, result.HasStdErrOutput with
                 | true,  true  -> Some result.TestResult.StdErr
@@ -58,6 +62,7 @@ type private Status =
                 | true,  false -> Some result.TestResult.StdOut
                 | false, false -> None
             let lastTitleRedraw = if shouldRedrawTitles then now else this.LastTitleRedraw
+            let lastUpdate = if shouldUpdate then now else this.LastUpdate
             {
                 Configuration       = this.Configuration
                 ElapsedTime         = elapsedTime
@@ -81,7 +86,9 @@ type private Status =
                         then Some (message.PadRight(paddedLength))
                         else Some (message)
                 LastTitleRedraw     = lastTitleRedraw
+                LastUpdate          = lastUpdate
                 ShouldRedrawTitles  = shouldRedrawTitles 
+                ShouldUpdate        = shouldUpdate
             }
 
 
@@ -97,7 +104,9 @@ let private initialState() =
         ExecutionsPerSecond = 0.0
         LastError           = None
         LastTitleRedraw     = DateTimeOffset.UtcNow
+        LastUpdate          = DateTimeOffset.UtcNow
         ShouldRedrawTitles  = true
+        ShouldUpdate        = true
     }
 
 
@@ -174,7 +183,8 @@ let private agent: MailboxProcessor<Message> =
                 return! loop state'               
             | UpdateDisplay result -> 
                 let state' = state.AddExecution result
-                state' |> toConsole
+                if (state'.ShouldUpdate)
+                then state' |> toConsole
                 return! loop state'
         }
         loop (initialState()))

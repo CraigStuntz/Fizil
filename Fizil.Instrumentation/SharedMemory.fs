@@ -17,10 +17,11 @@ let private mapName() =
 
 /// Overwrites entire memory in stream with 0s
 let clear (sharedMemory : MemoryMappedViewStream) =
-    let zeros : byte[] = Array.zeroCreate 16
+    let zeroSize = 256
+    let zeros : byte[] = Array.zeroCreate zeroSize
     sharedMemory.Seek(0L, SeekOrigin.Begin) |>ignore
-    for index = 0 to (mapSize32 / 16) - 1 do
-        sharedMemory.Write(zeros, 0, 16)
+    for index = 0 to (mapSize32 / zeroSize) - 1 do
+        sharedMemory.Write(zeros, 0, zeroSize)
 
 
 /// Creates and zero-initializes a memory-mapped file

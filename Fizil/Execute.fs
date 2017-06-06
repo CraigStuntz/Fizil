@@ -22,10 +22,14 @@ let (|InProcessSerial|OutOfProcess|) = function
 
 [<AbstractClass>]
 type private TestRunner (project: Project) =
-    member this.ExecutablePath = 
+    let executablePath = 
         let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
         let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
         if File.Exists instrumentedExe then instrumentedExe else sutExe
+    
+    member this.ExecutablePath
+        with get() = executablePath
+
 
     abstract member ExecuteTest: TestCase -> Result
     abstract member Dispose: unit -> unit
@@ -84,6 +88,7 @@ let private getSharedMemoryName() =
 
 type private OutOfProcessTestRunner(project: Project) = 
     inherit TestRunner(project)
+
     member this.InputMethod = 
         project |> projectOutOfProcessInputMethod
         

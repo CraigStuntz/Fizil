@@ -243,6 +243,15 @@ let private getHash (hash: System.Security.Cryptography.HashAlgorithm) (bytes: b
 
 
 let private shouldRecordFinding (result: Result) =
+    if (result.TestResult.Crashed)
+    then
+        if (not result.NewPathFound)
+        then
+            System.Diagnostics.Debug.WriteLine "Not recording finding because new path not found"
+        else
+            if result.TestCase.SourceFile.IsSome
+            then
+                System.Diagnostics.Debug.WriteLine "Not recording finding because there is a source file"
     result.TestResult.Crashed && result.NewPathFound && result.TestCase.SourceFile.IsNone
 
 
@@ -283,16 +292,20 @@ let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> =
             match message with
             | TestComplete result ->
                 let hashed = getHash state.Hash result.SharedMemory
-                let newPathFound = state.ObservedPaths.Add hashed // mutation! scary!
+                let newCrashPathFound = 
+                    if result.TestResult.Crashed
+                    then state.ObservedPaths.Add hashed // mutation! scary!
+                    else false
                 if (result.TestResult.Crashed)
                 then log.ToFile Standard "Process crashed!"
-                if (newPathFound)
+                if (newCrashPathFound)
                 then log.ToFile Verbose "New path found"
                 log.ToFile Verbose (sprintf "StdOut: %s"    result.TestResult.StdOut)
                 log.ToFile Verbose (sprintf "StdErr: %s"    result.TestResult.StdErr)
                 log.ToFile Verbose (sprintf "Exit code: %i" result.TestResult.ExitCode)
-                Display.postResult (Display.UpdateDisplay {result with NewPathFound = newPathFound })
-                let findingName = maybeRecordFinding project state result
+                let resultWithPathFound =  {result with NewPathFound = newCrashPathFound }
+                Display.postResult (Display.UpdateDisplay resultWithPathFound)
+                let findingName = maybeRecordFinding project state resultWithPathFound
                 let newState = { state with FindingName = findingName }
                 return! loop newState
             | AllTestsComplete replyChannel ->

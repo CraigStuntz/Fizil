@@ -68,6 +68,7 @@
     <Compile Include="FuzzTests.fs" />
     <Content Include="App.config" />
     <None Include="paket.references" />
+    <Compile Include="DictionaryTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

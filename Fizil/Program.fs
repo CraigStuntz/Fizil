@@ -1,9 +1,5 @@
 ﻿open Arguments
-open Log
-open Project
 open System
-open TestCase
-
 
 let private reportVersion() =
     printfn "%A" (System.Reflection.Assembly.GetExecutingAssembly().GetName().Version)

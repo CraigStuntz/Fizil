@@ -3,6 +3,9 @@
     Instrumented: instrumented
     Examples: examples
 
+Dictionaries:
+    - "json.dict"
+
 Execute:
     Executable: JsonNetTest.exe
     Input: OnCommandLine

@@ -348,7 +348,7 @@ let allTests (log: Logger) (project: Project) =
         let executablePath  = if File.Exists instrumentedExe then instrumentedExe else sutExe
         initializeTestRun project
         log.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
-        let testCases      = examples |> Fuzz.all
+        let testCases      = Fuzz.all(examples, Dictionary.readFiles project.Dictionaries)
         Display.postResult (Display.InitializeDisplay { 
             StartTime =    System.DateTimeOffset.Now
             ExampleBytes = examples |> List.sumBy (fun example -> example.Data |> Array.length )

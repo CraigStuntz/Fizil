@@ -334,6 +334,22 @@ let couldBeArith(oldVal: uint32, newVal: uint32, numberOfBytes: uint8) : bool =
                 else false
 
 
+let private dictionary(values: byte[][]) : FuzzStrategy =
+    fun (bytes: byte[]) ->
+        let testCases = seq {
+            for value in values do 
+            for i = 0 to bytes.Length - value.Length do
+                let newBytes = Array.copy bytes
+                for j = 0 to value.Length - 1 do
+                    newBytes.[i + j] <- value.[j]
+                yield newBytes
+        }
+        {
+            Name = "dictionary"
+            TestCasesPerExample = TestCasesPerByte (values |> Array.length)
+            TestCases = testCases
+        }
+
 let private interesting8 = [|
    -128y         // Overflow signed 8-bit when decremented  
    -1y           //                                         
@@ -490,11 +506,11 @@ let interest16 : FuzzStrategy =
             TestCasesPerExample = TestCasesPerByte (2 * (interesting16 |> Array.length))
             TestCases = testCases
         }
-
-
+ 
+ 
 /// An ordered list of functions to use when starting with a single piece of 
 /// example data and producing new examples to try
-let private allStrategies = [ 
+let private allStrategies(dictionaryValues: byte[][])= [ 
     bitFlip 1
     bitFlip 2
     bitFlip 4
@@ -504,6 +520,7 @@ let private allStrategies = [
     arith8
     arith16
     arith32
+    dictionary dictionaryValues 
     interest8
     interest16
 ]
@@ -517,10 +534,10 @@ let private applyStrategy (strategy: FuzzStrategy) (examples: TestCase list) (ge
     }
 
 
-let all (examples: TestCase list) : seq<TestCase> =     
+let all (examples: TestCase list, dictionaryValues: byte[][]) : seq<TestCase> =     
     seq {
         yield applyStrategy useOriginalExample examples (fun example -> example.SourceFile)
-        for strategy in allStrategies do
+        for strategy in allStrategies dictionaryValues do
             // fuzzed input doesn't come directly from a file, so return None for source file
             yield applyStrategy strategy examples (fun _ -> None)
     } |> Seq.collect id

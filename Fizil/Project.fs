@@ -19,6 +19,10 @@ let private makeDirectoriesAbsolute (project: Project) (projectPathAndFilename: 
     let toAbsolutePath directory = 
         Path.Combine(projectDirectory, directory) 
         |> Path.GetFullPath
+    project.Dictionaries <-
+        project.Dictionaries 
+        |> Seq.map toAbsolutePath
+        |> fun dicts -> new System.Collections.Generic.List<string>(dicts)
     project.Directories.SystemUnderTest <- project.Directories.SystemUnderTest |> toAbsolutePath
     project.Directories.Instrumented    <- project.Directories.Instrumented    |> toAbsolutePath
     project.Directories.Examples        <- project.Directories.Examples        |> toAbsolutePath

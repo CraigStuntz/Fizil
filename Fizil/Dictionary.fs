@@ -5,6 +5,8 @@ open System.Text
 
 let private backslashEscapedChar (value: char) : char =
     match value with
+    | 'b' -> '\b'
+    | 'f' -> '\f'
     | 'n' -> '\n'
     | 'r' -> '\r'
     | 't' -> '\t'

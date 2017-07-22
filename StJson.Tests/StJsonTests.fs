@@ -73,12 +73,17 @@ module StJsonTests =
         let actual = parseString "10.0e1"
         actual |> shouldEqual (Parsed (JsonNumber "10.0e1")) 
 
+ 
+    [<Test>]    
+    let ``invalid Unicode escape sequence should fail``() =
+        parseString "\"\u1qa7\"" 
+        |> shouldEqual (CouldNotParse "InvalidUnicodeEscapeSequence") 
+
 
     [<Test>]
     let stringOverloadShouldGiveSameResultsAsBytes() = 
         let json  = """ { "abc": "def"} """
         let bytes = System.Text.Encoding.UTF8.GetBytes json
-
         let parsedAsBytes = StJsonParser(bytes).parse()
         let parsedAsString = StJsonParser(json).parse()
 

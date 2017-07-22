@@ -97,6 +97,7 @@ type JSONError =
 | FoundBOMForUnsupportdEncodingUTF16LE
 | FoundBOMForUnsupportdEncodingUTF32BE
 | FoundBOMForUnsupportdEncodingUTF32LE
+| InvalidUnicodeEscapeSequence
 
 
 type StJsonParser(data: byte[], ?maxParserDepth: int, ?options: Options) = 
@@ -286,10 +287,10 @@ type StJsonParser(data: byte[], ?maxParserDepth: int, ?options: Options) =
                         | Some b4 ->        
                             let s = System.String(utf8Encoding.GetChars([|b1; b2; b3; b4|]))
                             Some (s, (System.Int32.Parse(s, System.Globalization.NumberStyles.HexNumber)))
-                        | None -> None
-                    | None -> None
-                | None -> None
-            | None -> None
+                        | None -> throw JSONError.InvalidUnicodeEscapeSequence
+                    | None -> throw JSONError.InvalidUnicodeEscapeSequence
+                | None -> throw JSONError.InvalidUnicodeEscapeSequence
+            | None -> throw JSONError.InvalidUnicodeEscapeSequence
 
     
     member this.readAndMoveEscapedCodepointOrSurrogates() : string option =

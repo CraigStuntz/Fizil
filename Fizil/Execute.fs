@@ -291,19 +291,16 @@ let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> =
             let! message = inbox.Receive()
             match message with
             | TestComplete result ->
-                let hashed = getHash state.Hash result.SharedMemory
-                let newCrashPathFound = 
-                    if result.TestResult.Crashed
-                    then state.ObservedPaths.Add hashed // mutation! scary!
-                    else false
+                let hashed       = getHash state.Hash result.SharedMemory
+                let newPathFound = state.ObservedPaths.Add hashed
                 if (result.TestResult.Crashed)
                 then log.ToFile Standard "Process crashed!"
-                if (newCrashPathFound)
+                if (newPathFound)
                 then log.ToFile Verbose "New path found"
                 log.ToFile Verbose (sprintf "StdOut: %s"    result.TestResult.StdOut)
                 log.ToFile Verbose (sprintf "StdErr: %s"    result.TestResult.StdErr)
                 log.ToFile Verbose (sprintf "Exit code: %i" result.TestResult.ExitCode)
-                let resultWithPathFound =  {result with NewPathFound = newCrashPathFound }
+                let resultWithPathFound =  {result with NewPathFound = newPathFound }
                 Display.postResult (Display.UpdateDisplay resultWithPathFound)
                 let findingName = maybeRecordFinding project state resultWithPathFound
                 let newState = { state with FindingName = findingName }

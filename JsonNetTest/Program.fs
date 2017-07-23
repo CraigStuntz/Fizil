@@ -28,10 +28,11 @@ let parseJson (maybeJson: byte[]) : ParseResult =
         with 
         | :? JsonReaderException        as jre -> jre.Message |> Error
         | :? JsonSerializationException as jse -> jse.Message |> Error
-        | :? System.FormatException     as fe -> 
+        | :? System.FormatException     as fe  -> 
             if fe.Message.StartsWith("Invalid hex character") // hard coded: https://github.com/JamesNK/Newtonsoft.Json/blob/6d7c94e69fa2f52b91fb22972321cb9b51b9abed/Src/Newtonsoft.Json/Utilities/ConvertUtils.cs#L984
             then fe.Message |> Error
             else reraise()
+        | ex                                   -> ex.Message |> Error
     let stJsonResult = 
         try
             let parser = StJson.StJsonParser(maybeJson, 500, StJson.Options.none)

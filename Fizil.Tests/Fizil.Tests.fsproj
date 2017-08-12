@@ -9,7 +9,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>Fizil.Tests</RootNamespace>
     <AssemblyName>Fizil.Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Name>Fizil.Tests</Name>
@@ -75,6 +75,11 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
+    <ProjectReference Include="..\Fizil.Fuzzer\Fizil.Fuzzer.fsproj">
+      <Name>Fizil.Fuzzer</Name>
+      <Project>{ff57859a-93f6-4fcb-a841-df55c251bd93}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\Fizil.Instrumentation\Fizil.Instrumentation.fsproj">
       <Name>Fizil.Instrumentation</Name>
       <Project>{5aba511e-4e97-4df9-902f-48efa4090d92}</Project>

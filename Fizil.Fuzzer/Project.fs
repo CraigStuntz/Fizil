@@ -13,7 +13,7 @@ let private absoluteProjectDirectory (projectPathAndFilename: string) : string =
         |> Path.GetFullPath
         |> Path.GetDirectoryName
 
-
+ 
 let private makeDirectoriesAbsolute (project: Project) (projectPathAndFilename: string) : Project =
     let projectDirectory = projectPathAndFilename |> absoluteProjectDirectory
     let toAbsolutePath directory = 

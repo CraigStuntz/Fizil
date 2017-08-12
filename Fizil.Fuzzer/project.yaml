@@ -1,0 +1,25 @@
+﻿Directories:
+    SystemUnderTest: system-under-test
+    Instrumented: instrumented
+    Examples: examples
+
+Dictionaries:
+    - "json.dict"
+
+Execute:
+    Executable: JsonNetTest.exe
+    Input: OnCommandLine
+    Isolation: OutOfProcess
+
+Instrument:
+    Include:
+        - "*.exe"
+        - "*.dll"
+    Exclude:
+        - Fizil.Properties.dll
+        - Mono.Cecil.dll
+        - Mono.Cecil.Rocks.dll
+        - TinyTest.vshost.exe
+
+TextFileExtensions: 
+    - .txt

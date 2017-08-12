@@ -9,7 +9,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>Fizil</RootNamespace>
     <AssemblyName>Fizil</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <Name>Fizil</Name>
@@ -52,16 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Convert.fs" />
-    <Compile Include="ExecutionResult.fs" />
-    <Compile Include="Log.fs" />
-    <Compile Include="WinApi.fs" />
-    <Compile Include="Dictionary.fs" />
-    <Compile Include="Fuzz.fs" />
     <Compile Include="Arguments.fs" />
-    <Compile Include="Project.fs" />
-    <Compile Include="CilInstrument.fs" />
-    <Compile Include="Instrument.fs" />
     <Compile Include="ExitCodes.fs" />
     <Compile Include="Display.fs" />
     <Compile Include="Execute.fs" />
@@ -71,6 +62,11 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Fizil.Fuzzer\Fizil.Fuzzer.fsproj">
+      <Name>Fizil.Fuzzer</Name>
+      <Project>{ff57859a-93f6-4fcb-a841-df55c251bd93}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\Fizil.Instrumentation\Fizil.Instrumentation.fsproj">
       <Name>Fizil.Instrumentation</Name>
       <Project>{5aba511e-4e97-4df9-902f-48efa4090d92}</Project>

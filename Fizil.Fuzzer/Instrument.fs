@@ -8,7 +8,7 @@ open System.Linq
 
 let private fizilInstrumentAssemblyName = typeof<Fizil.Instrumentation.Instrument>.Assembly.Location |> Path.GetFileName
 
-let private filesToInstrument (systemUnderTestFiles: Set<string>, project: Project) : Set<string> =
+let private filesToInstrument (systemUnderTestFiles: Set<string>, project: DumbProject) : Set<string> =
     let excluded = 
         project.Instrument.Exclude 
         |> Set.ofSeq
@@ -18,14 +18,14 @@ let private filesToInstrument (systemUnderTestFiles: Set<string>, project: Proje
         |> (fun files -> Set.difference files excluded)
 
 
-let systemUnderTestFiles(project: Project) : Set<string> = 
+let systemUnderTestFiles(project: DumbProject) : Set<string> = 
     project.Instrument.Include
         |> Seq.collect (fun pattern -> Directory.GetFiles(project.Directories.SystemUnderTest, pattern))
         |> Seq.map Path.GetFileName
         |> Set.ofSeq
 
 
-let project (project: Project, log: Logger) =
+let project (project: DumbProject, log: Logger) =
     log.ToFile Standard "Starting instrumentation..."
     let files = systemUnderTestFiles project
     let instrument = filesToInstrument(files, project)

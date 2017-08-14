@@ -21,7 +21,7 @@ let (|InProcessSerial|OutOfProcess|) = function
 
 
 [<AbstractClass>]
-type private TestRunner (project: Project) =
+type private TestRunner (project: DumbProject) =
     let executablePath = 
         let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
         let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
@@ -61,7 +61,7 @@ let onStandardInput : OutOfProcessInputMethod = {
 }
 
 
-let private projectOutOfProcessInputMethod (project: Project) =
+let private projectOutOfProcessInputMethod (project: DumbProject) =
     match project.Execute.Input.ToLowerInvariant() with
     | "oncommandline"   -> onCommandLine
     | "onstandardinput" -> onStandardInput
@@ -86,7 +86,7 @@ let private getSharedMemoryName() =
     sprintf "Fizil-shared-memory-%d" (System.Threading.Interlocked.Increment(executionId))
 
 
-type private OutOfProcessTestRunner(project: Project) = 
+type private OutOfProcessTestRunner(project: DumbProject) = 
     inherit TestRunner(project)
 
     member this.InputMethod = 
@@ -140,7 +140,7 @@ type ByteArrayEntryPointDelegate = delegate of byte[] -> TestResult
 type StringEntryPointDelegate    = delegate of string -> TestResult 
 
 
-type private InProcessTestRunner(project: Project) = 
+type private InProcessTestRunner(project: DumbProject) = 
     inherit TestRunner(project)
     
     let initializeSharedMemory() =
@@ -203,7 +203,7 @@ type private InProcessTestRunner(project: Project) =
         Instrument.Close()
 
 
-let initializeTestRun (project: Project) =
+let initializeTestRun (project: DumbProject) =
     Directory.SetCurrentDirectory(project.Directories.SystemUnderTest)
     // Disable error reporting for this process. 
     // That's inherited by child processes, so we don't get slowed by crash reporting.
@@ -211,14 +211,14 @@ let initializeTestRun (project: Project) =
     WinApi.disableCrashReporting()
 
 
-let private loadExampleFile (project: Project) (filename: string) : byte[] =
+let private loadExampleFile (project: DumbProject) (filename: string) : byte[] =
     let extension = (filename |> Path.GetExtension).ToLowerInvariant()
     if project.TextFileExtensions.Any(fun ext -> extension.Equals(ext, System.StringComparison.OrdinalIgnoreCase))
     then File.ReadAllText(filename) |> Convert.toBytesUtf8
     else File.ReadAllBytes(filename)
 
 
-let private loadExamples (project: Project) : TestCase list =
+let private loadExamples (project: DumbProject) : TestCase list =
     Directory.EnumerateFiles(project.Directories.Examples, "*", SearchOption.AllDirectories)
         |> Seq.map (fun filename -> 
             let data = loadExampleFile project filename
@@ -255,16 +255,16 @@ let private shouldRecordFinding (result: Result) =
     result.TestResult.Crashed && result.NewPathFound && result.TestCase.SourceFile.IsNone
 
 
-let private findingsFolderName (project: Project) (state: ExecutionState) =
+let private findingsFolderName (project: DumbProject) (state: ExecutionState) =
     Path.Combine(project.Directories.Examples, state.FindingsFolder)
 
 
-let private forceFindingsDirectory (project: Project) (state: ExecutionState) : unit =
+let private forceFindingsDirectory (project: DumbProject) (state: ExecutionState) : unit =
     let directory = findingsFolderName project state
     Directory.CreateDirectory(directory) |> ignore
 
 
-let private recordFinding (project: Project) (state: ExecutionState) (testCase: TestCase) =
+let private recordFinding (project: DumbProject) (state: ExecutionState) (testCase: TestCase) =
     forceFindingsDirectory project state
     let filename = state.FindingName.ToString() + testCase.FileExtension
     let fullPath = Path.Combine(findingsFolderName project state, filename)
@@ -273,7 +273,7 @@ let private recordFinding (project: Project) (state: ExecutionState) (testCase: 
 
 /// Record finding if needed. 
 /// Return name of next finding, in any case
-let private maybeRecordFinding (project: Project) (state: ExecutionState) (result: Result) =
+let private maybeRecordFinding (project: DumbProject) (state: ExecutionState) (result: Result) =
     if shouldRecordFinding result 
     then 
         recordFinding project state result.TestCase
@@ -285,7 +285,7 @@ type private Message =
     | TestComplete     of Result
     | AllTestsComplete of AsyncReplyChannel<ExecutionState>
 
-let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> = 
+let private agent (project: DumbProject) (log: Logger) : MailboxProcessor<Message> = 
     MailboxProcessor.Start(fun inbox ->
         let rec loop (state: ExecutionState) = async {
             let! message = inbox.Receive()
@@ -311,7 +311,7 @@ let private agent (project: Project) (log: Logger) : MailboxProcessor<Message> =
         async {
             let localNow       = System.DateTime.Now
             let findingsFolder = "findings_" + localNow.ToString("yyyy-MM-dd_HH-mm-ss")
-            let rec withUniqueFindingsFolder (project: Project) (state: ExecutionState) = 
+            let rec withUniqueFindingsFolder (project: DumbProject) (state: ExecutionState) = 
                 if Directory.Exists (findingsFolderName project state)
                 then withUniqueFindingsFolder project { state with FindingsFolder = state.FindingsFolder + "_" }
                 else state
@@ -333,7 +333,7 @@ let private executeApplicationTestCase (runner: TestRunner) (log: Logger) (agent
     agent.Post(TestComplete result)
 
 
-let allTests (log: Logger) (project: Project) =
+let allTests (log: Logger) (project: DumbProject) =
     match loadExamples project with
     | [] ->
         Log.error (sprintf "No example files found in %s" project.Directories.Examples)

@@ -5,10 +5,6 @@ let private reportVersion() =
     printfn "%A" (System.Reflection.Assembly.GetExecutingAssembly().GetName().Version)
 
 
-let private showHelp () =
-    printfn "%s" (Arguments.helpString())
-
-
 let private waitIfDebugging() =
     if (System.Diagnostics.Debugger.IsAttached)
     then
@@ -44,11 +40,11 @@ let private executeOperation(operation: Operation, arguments: Arguments) : int =
         | None -> 
             Log.error (sprintf "Project file %s not found" arguments.ProjectFileName)
             ExitCodes.projectFileNotFound
-    | ReportVersion-> 
+    | ReportVersion -> 
         reportVersion()
         ExitCodes.success
     | ShowHelp -> 
-        showHelp()
+        printfn "%s" Arguments.usage
         ExitCodes.success
 
 

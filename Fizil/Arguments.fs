@@ -1,6 +1,27 @@
 ﻿module Arguments
 
+open Argu
 open Log
+
+type CliArgument = 
+    | Init
+    | Instrument
+    | Fuzz
+    | [<MainCommand; ExactlyOnce; Last>] ProjectName of project:string
+    | Version
+    | Quiet
+    | Verbose
+with
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Init          -> "Create a default project file"
+            | Instrument    -> "Instrument binaries in system under test folder"
+            | Fuzz          -> "Execute tests by fuzzing examples"
+            | ProjectName _ -> "Project filename"
+            | Version       -> "Report the application version"
+            | Quiet         -> "Suppress all non-error command line output"
+            | Verbose       -> "Display additional status information on command line output"
 
 
 type Operation = 
@@ -10,7 +31,6 @@ type Operation =
     | ReportVersion
     | ShowHelp
 
-
 type Arguments = {
     Operations:      Operation list
     ProjectFileName: string
@@ -18,25 +38,12 @@ type Arguments = {
 }
 
 
-let defaultArguments = 
+let defaultArguments(parseResults: ParseResults<CliArgument>) = 
     {
         Operations       = []
-        ProjectFileName = "project.yaml"
+        ProjectFileName = parseResults.GetResult(<@ ProjectName @>, "project.yaml")
         Verbosity       = Standard
     }
-
-
-let helpString () = 
-    """Usage: Fizil [OPTION] [path/to/project.yaml]
-  --help       Display this help message
-  --init       Create working directories
-  --instrument Instrument binaries in system under test folder
-  --fuzz       Execute tests by fuzzing examples
-  --quiet      Suppress all non-error command line output
-  --verbose    Display additional status information on command line output
-  --version    Report version
-  
-  If project filename is not specified, Fizil will look for project.yaml in current directory"""
 
 
 let private (|ProjectFile|_|) str = 
@@ -44,32 +51,34 @@ let private (|ProjectFile|_|) str =
     then Some str
     else None
 
+let parser = ArgumentParser.Create<CliArgument>(programName = "fizil.exe")
+let usage = parser.PrintUsage()
 
-let rec private parseArgument (accum: Arguments) (argv: string list) =
-    match argv with 
-    | [] 
-        -> accum 
-    | "--init"   :: rest 
-        -> parseArgument { accum with Operations = Initialize :: accum.Operations }      rest
-    | "--fuzz"   :: rest 
-        -> parseArgument { accum with Operations = accum.Operations @ [ ExecuteTests ] } rest
-    | "--instrument"   :: rest 
-        -> parseArgument { accum with Operations = Instrument :: accum.Operations }      rest
-    | "--quiet"   :: rest 
-        -> parseArgument { accum with Verbosity = Quiet }                                rest
-    | "--verbose" :: rest 
-        -> parseArgument { accum with Verbosity = Verbose }                              rest
-    | "--version" :: rest 
-        -> parseArgument { accum with Operations = ReportVersion :: accum.Operations }   rest
-    | ProjectFile filename :: rest 
-        -> parseArgument { accum with ProjectFileName = filename }                       rest    
-    | "--help"    :: rest 
-    | _           :: rest
-        -> parseArgument { accum with Operations = ShowHelp :: accum.Operations }        rest
+let private parseOperation (parseResults: ParseResults<CliArgument>) (accum: Arguments) (cliArgument, operation) : Arguments =
+    if parseResults.Contains cliArgument 
+    then { accum with Operations = accum.Operations @ [ operation ] }
+    else accum
+
+let private parseOperations (parseResults: ParseResults<CliArgument>) (accum: Arguments) : Arguments = 
+    let cliArgumentToOperationMap = [
+        (<@ Init @>,                   Initialize)
+        (<@ CliArgument.Instrument @>, Operation.Instrument)
+        (<@ Fuzz @>,                   ExecuteTests)
+        (<@ Version @>,                ReportVersion)
+    ]
+    List.fold (parseOperation parseResults) accum cliArgumentToOperationMap
+
+let private parseVerbosity (parseResults: ParseResults<CliArgument>) (accum: Arguments) : Arguments =
+    if parseResults.Contains <@ Verbose @> 
+    then { accum with Verbosity = Verbosity.Verbose }
+    else 
+        if parseResults.Contains <@ Quiet @>
+        then { accum with Verbosity = Verbosity.Quiet }
+        else accum
 
 
 let parse (argv: string[]) = 
-     let result = parseArgument defaultArguments (argv |> List.ofArray)
-     match result.Operations with
-     | [] -> { result with Operations = [ ExecuteTests ] } // default operation
-     | _  -> result
+    let parseResults = parser.Parse argv
+    (defaultArguments parseResults)
+        |> parseOperations parseResults
+        |> parseVerbosity parseResults

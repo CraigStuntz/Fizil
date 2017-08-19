@@ -8,4 +8,4 @@ nuget FSharp.Collections.ParallelSeq
 nuget Newtonsoft.Json
 nuget nunit
 nuget FsUnit
-nuget Microsoft.Diagnostics.Tracing.TraceEvent
+nuget Argu

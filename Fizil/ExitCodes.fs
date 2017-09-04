@@ -1,5 +1,7 @@
 ﻿module ExitCodes
 
+open Execute
+
 [<Literal>]
 let success = 0
 
@@ -12,3 +14,8 @@ let projectFileNotFound = 64
 
 [<Literal>]
 let examplesNotFound    = 65
+
+
+let fromSessionResult = function
+    | ExamplesNotFound -> examplesNotFound
+    | Success -> success

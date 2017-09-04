@@ -59,11 +59,14 @@
     <Compile Include="WinApi.fs" />
     <Compile Include="Dictionary.fs" />
     <Compile Include="Fuzz.fs" />
-    <None Include="paket.references" />
-    <None Include="project.yaml" />
     <Compile Include="Project.fs" />
+    <Compile Include="Status.fs" />
     <Compile Include="CilInstrument.fs" />
     <Compile Include="Instrument.fs" />
+    <Compile Include="Session.fs" />
+    <Compile Include="Execute.fs" />
+    <None Include="project.yaml" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />

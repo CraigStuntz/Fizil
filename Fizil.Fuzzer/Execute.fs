@@ -10,6 +10,8 @@ open Fizil.Instrumentation
 open ExecutionResult
 open Log
 open Project
+open Session
+open Status
 open TestCase
 open System.Linq.Expressions
 
@@ -285,7 +287,7 @@ type private Message =
     | TestComplete     of Result
     | AllTestsComplete of AsyncReplyChannel<ExecutionState>
 
-let private agent (project: DumbProject) (log: Logger) : MailboxProcessor<Message> = 
+let private agent (session: Session) : MailboxProcessor<Message> = 
     MailboxProcessor.Start(fun inbox ->
         let rec loop (state: ExecutionState) = async {
             let! message = inbox.Receive()
@@ -294,15 +296,15 @@ let private agent (project: DumbProject) (log: Logger) : MailboxProcessor<Messag
                 let hashed       = getHash state.Hash result.SharedMemory
                 let newPathFound = state.ObservedPaths.Add hashed
                 if (result.TestResult.Crashed)
-                then log.ToFile Standard "Process crashed!"
+                then session.Logger.ToFile Standard "Process crashed!"
                 if (newPathFound)
-                then log.ToFile Verbose "New path found"
-                log.ToFile Verbose (sprintf "StdOut: %s"    result.TestResult.StdOut)
-                log.ToFile Verbose (sprintf "StdErr: %s"    result.TestResult.StdErr)
-                log.ToFile Verbose (sprintf "Exit code: %i" result.TestResult.ExitCode)
+                then session.Logger.ToFile Verbose "New path found"
+                session.Logger.ToFile Verbose (sprintf "StdOut: %s"    result.TestResult.StdOut)
+                session.Logger.ToFile Verbose (sprintf "StdErr: %s"    result.TestResult.StdErr)
+                session.Logger.ToFile Verbose (sprintf "Exit code: %i" result.TestResult.ExitCode)
                 let resultWithPathFound =  {result with NewPathFound = newPathFound }
-                Display.postResult (Display.UpdateDisplay resultWithPathFound)
-                let findingName = maybeRecordFinding project state resultWithPathFound
+                session.StatusMonitor.postResult (Status.Update resultWithPathFound)
+                let findingName = maybeRecordFinding session.Project state resultWithPathFound
                 let newState = { state with FindingName = findingName }
                 return! loop newState
             | AllTestsComplete replyChannel ->
@@ -322,7 +324,7 @@ let private agent (project: DumbProject) (log: Logger) : MailboxProcessor<Messag
                     ObservedPaths  = HashSet<string>()
                     FindingName    = 0
                     FindingsFolder = findingsFolder
-                } |> withUniqueFindingsFolder project
+                } |> withUniqueFindingsFolder session.Project
             do! loop initialState
         })
 
@@ -333,37 +335,42 @@ let private executeApplicationTestCase (runner: TestRunner) (log: Logger) (agent
     agent.Post(TestComplete result)
 
 
-let allTests (log: Logger) (project: DumbProject) =
-    match loadExamples project with
+type SessionResult = 
+| ExamplesNotFound
+| Success
+
+
+let allTests (session: Session) =
+    match loadExamples session.Project with
     | [] ->
-        Log.error (sprintf "No example files found in %s" project.Directories.Examples)
-        ExitCodes.examplesNotFound
+        Log.error (sprintf "No example files found in %s" session.Project.Directories.Examples)
+        ExamplesNotFound
     | examples ->
         executionId := 0L
-        let sutExe          = Path.Combine(project.Directories.SystemUnderTest, project.Execute.Executable)
-        let instrumentedExe = Path.Combine(project.Directories.Instrumented, project.Execute.Executable)
+        let sutExe          = Path.Combine(session.Project.Directories.SystemUnderTest, session.Project.Execute.Executable)
+        let instrumentedExe = Path.Combine(session.Project.Directories.Instrumented, session.Project.Execute.Executable)
         let executablePath  = if File.Exists instrumentedExe then instrumentedExe else sutExe
-        initializeTestRun project
-        log.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
-        let testCases      = Fuzz.all(examples, Dictionary.readFiles project.Dictionaries)
-        Display.postResult (Display.InitializeDisplay { 
+        initializeTestRun session.Project
+        session.Logger.ToFile Standard (sprintf "Testing %s" (System.IO.Path.GetFullPath executablePath))
+        let testCases      = Fuzz.all(examples, Dictionary.readFiles session.Project.Dictionaries)
+        session.StatusMonitor.postResult (Status.Initialize { 
             StartTime =    System.DateTimeOffset.Now
             ExampleBytes = examples |> List.sumBy (fun example -> example.Data |> Array.length )
             ExampleCount = examples |> List.length
             })
-        let agent = agent project log
+        let agent = agent session
 
         let iter =
-            match project.Execute.Isolation with 
+            match session.Project.Execute.Isolation with 
             | InProcessSerial -> Seq.iter  // Stuff which can't be done in parallel
             | OutOfProcess    -> PSeq.iter // Stuff which  can  be done in parallel
 
         use testRunner : TestRunner = 
-            match project.Execute.Isolation with
-            | InProcessSerial -> new InProcessTestRunner(project)    :> TestRunner
-            | OutOfProcess    -> new OutOfProcessTestRunner(project) :> TestRunner
+            match session.Project.Execute.Isolation with
+            | InProcessSerial -> new InProcessTestRunner(session.Project)    :> TestRunner
+            | OutOfProcess    -> new OutOfProcessTestRunner(session.Project) :> TestRunner
         testCases
-            |> iter (executeApplicationTestCase testRunner log agent)
+            |> iter (executeApplicationTestCase testRunner session.Logger agent)
         // Tell agent we're done, dispose stuff it holds.
         let _finalState = agent.PostAndReply(fun replyChannel -> AllTestsComplete replyChannel)
-        ExitCodes.success
+        Success

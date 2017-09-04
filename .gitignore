@@ -17,7 +17,7 @@ Demo/instrumented/*
 *.suo
 *.user
 *.sln.docstates
-.vs/config/applicationhost.config
+.vs/**
 
 # Build results
 

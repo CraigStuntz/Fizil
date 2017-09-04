@@ -1,6 +1,7 @@
-﻿module Display
+﻿module CliDisplay
 
 open ExecutionResult
+open Status
 open System
 open System.Globalization
 open System.Linq
@@ -14,13 +15,6 @@ let valueColor      = ConsoleColor.White
 
 let private consoleTitleRedrawInterval = TimeSpan(0, 0, 0, 15, 0)
 let private consoleUpdateInterval = TimeSpan(0, 0, 0, 0, 100)
-
-
-type Configuration = {
-    ExampleBytes: int
-    ExampleCount: int
-    StartTime:    DateTimeOffset
-}
 
 
 type private Status = 
@@ -167,21 +161,15 @@ let private toConsole(status: Status) =
     writeParagraph redrawTitle "Last error"     titleWidth (status.LastError |> Option.map stripControlCharacters)
 
 
-[<NoComparison>]
-type Message = 
-    | InitializeDisplay of Configuration
-    | UpdateDisplay     of Result
-
-
 let private agent: MailboxProcessor<Message> =
     MailboxProcessor.Start(fun inbox ->
         let rec loop (state: Status) = async {
             let! message = inbox.Receive()
             match message with
-            | InitializeDisplay configuration ->
+            | Initialize configuration ->
                 let state' = { state with Configuration = configuration }
                 return! loop state'               
-            | UpdateDisplay result -> 
+            | Update result -> 
                 let state' = state.AddExecution result
                 if (state'.ShouldUpdate)
                 then state' |> toConsole

@@ -1,4 +1,5 @@
 ﻿open Arguments
+open Session
 open System
 
 let private reportVersion() =
@@ -34,9 +35,17 @@ let private executeOperation(operation: Operation, arguments: Arguments) : int =
         let log              = Log.create(None, arguments.Verbosity)
         match Project.load arguments.ProjectFileName with
         | Some project -> 
-            Console.BackgroundColor <- Display.backgroundColor
+            Console.BackgroundColor <- CliDisplay.backgroundColor
             Console.Clear()
-            Execute.allTests log project
+            let session = {
+                Logger = log
+                Project = project
+                StatusMonitor = 
+                    {
+                        postResult = CliDisplay.postResult
+                    }
+            }
+            Execute.allTests session |> ExitCodes.fromSessionResult
         | None -> 
             Log.error (sprintf "Project file %s not found" arguments.ProjectFileName)
             ExitCodes.projectFileNotFound

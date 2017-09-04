@@ -54,8 +54,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Arguments.fs" />
     <Compile Include="ExitCodes.fs" />
-    <Compile Include="Display.fs" />
-    <Compile Include="Execute.fs" />
+    <Compile Include="CliDisplay.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <None Include="project.yaml" />

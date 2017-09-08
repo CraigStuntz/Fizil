@@ -20,6 +20,3 @@ Instrument:
         - Mono.Cecil.dll
         - Mono.Cecil.Rocks.dll
         - TinyTest.vshost.exe
-
-TextFileExtensions: 
-    - .txt

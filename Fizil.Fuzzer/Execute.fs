@@ -213,17 +213,14 @@ let initializeTestRun (project: DumbProject) =
     WinApi.disableCrashReporting()
 
 
-let private loadExampleFile (project: DumbProject) (filename: string) : byte[] =
-    let extension = (filename |> Path.GetExtension).ToLowerInvariant()
-    if project.TextFileExtensions.Any(fun ext -> extension.Equals(ext, System.StringComparison.OrdinalIgnoreCase))
-    then File.ReadAllText(filename) |> Convert.toBytesUtf8
-    else File.ReadAllBytes(filename)
+let private loadExampleFile (filename: string) : byte[] =
+    File.ReadAllBytes(filename)
 
 
 let private loadExamples (project: DumbProject) : TestCase list =
     Directory.EnumerateFiles(project.Directories.Examples, "*", SearchOption.AllDirectories)
         |> Seq.map (fun filename -> 
-            let data = loadExampleFile project filename
+            let data = loadExampleFile filename
             { 
                 Data          = data
                 FileExtension = Path.GetExtension(filename)

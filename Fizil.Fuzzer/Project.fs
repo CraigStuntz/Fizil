@@ -10,6 +10,7 @@ type Project = YamlConfig<"project.yaml">
 type DumbDirectories = {
     Examples: string
     Instrumented: string
+    Out: string
     SystemUnderTest: string
 }
 
@@ -29,7 +30,6 @@ type DumbProject = {
     Directories: DumbDirectories
     Execute: DumbExecute
     Instrument: DumbInstrument
-    TextFileExtensions: string list
 }
 
 let private absoluteProjectDirectory (projectPathAndFilename: string) : string = 
@@ -53,6 +53,7 @@ let private makeDirectoriesAbsolute (project: DumbProject) (projectPathAndFilena
                 SystemUnderTest = project.Directories.SystemUnderTest |> toAbsolutePath
                 Instrumented    = project.Directories.Instrumented    |> toAbsolutePath
                 Examples        = project.Directories.Examples        |> toAbsolutePath
+                Out             = project.Directories.Out             |> toAbsolutePath
             }
     }
 
@@ -81,13 +82,13 @@ let private defaultProject (projectDirectory: string) : DumbProject =
                     SystemUnderTest = "system-under-test"
                     Instrumented    = "instrumented"
                     Examples        = "examples"
+                    Out             = "out"
                 }
             Instrument = 
                 {
                     Exclude = []
                     Include = [ "*.exe"; "*.dll" ] 
                 }
-            TextFileExtensions = [ ".txt" ]
         }
     makeDirectoriesAbsolute project projectDirectory
 
@@ -113,8 +114,9 @@ let private toDumbProject (project: Project) : DumbProject =
         Dictionaries = project.Dictionaries
         Directories = 
             {
-                Examples = project.Directories.Examples
-                Instrumented = project.Directories.Instrumented
+                Examples        = project.Directories.Examples
+                Instrumented    = project.Directories.Instrumented
+                Out             = project.Directories.Out
                 SystemUnderTest = project.Directories.SystemUnderTest
             }
         Execute = 
@@ -128,7 +130,6 @@ let private toDumbProject (project: Project) : DumbProject =
                 Exclude = project.Instrument.Exclude
                 Include = project.Instrument.Include
             }
-        TextFileExtensions = project.TextFileExtensions |> List.ofSeq
     }
 
 let private toProject (project: DumbProject) : Project =
@@ -140,7 +141,6 @@ let private toProject (project: DumbProject) : Project =
     project.Execute.Executable <- project.Execute.Executable
     project.Execute.Input <- project.Execute.Input
     project.Execute.Isolation <- project.Execute.Isolation
-    project.TextFileExtensions <- project.TextFileExtensions
     project
 
 let load (pathAndFilename: string) : DumbProject option =
